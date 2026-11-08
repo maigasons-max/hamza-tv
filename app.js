@@ -491,6 +491,13 @@ async function fluxDirect(embed) {
 
 function estYoutube(url) { return /youtu\.?be/.test(url); }
 
+/* Un episode peut pointer vers plusieurs sources : la premiere qui repond est jouee,
+   et si elle lache en cours de lecture l'app passe a la suivante toute seule. */
+function sourcesDe(v) {
+  if (Array.isArray(v)) return v.filter(Boolean);
+  return v ? [v] : [];
+}
+
 function formaterTemps(secondes) {
   const t = Math.max(0, Math.floor(secondes || 0));
   const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), c = t % 60;
@@ -500,6 +507,7 @@ function formaterTemps(secondes) {
 async function lire(item, num) {
   const url = lienEpisode(item, num);
   if (!url) return;
+  const urlDirecte = Array.isArray(url) ? url[0] : url;
   noterReprise(item, num);
 
   const nums = Object.keys(item.episodes).map(Number).sort((a, b) => a - b);
@@ -774,7 +782,7 @@ async function lire(item, num) {
     arreterCompteur();
     retirerVideo();
     iframe = document.createElement("iframe");
-    iframe.src = url;
+    iframe.src = urlDirecte;
     iframe.allowFullscreen = true;
     iframe.setAttribute("allow", "autoplay; encrypted-media; fullscreen");
     iframe.setAttribute("referrerpolicy", "origin");
@@ -804,7 +812,18 @@ async function lire(item, num) {
     demarrerCompteur();
     entrerPleinEcran();
 
-    const flux = item.type === "natif" ? url : await fluxDirect(url);
+    const sources = item.type === "natif" ? sourcesDe(url) : sourcesDe(url);
+    let rangSource = 0;
+    const sourceSuivante = async () => {
+      for (let i = rangSource; i < sources.length; i++) {
+        const u = sources[i];
+        const dejaUnFlux = /\.m3u8|\.mp4/i.test(u);
+        const f = dejaUnFlux ? u : await fluxDirect(u);
+        if (f) { rangSource = i + 1; return f; }
+      }
+      return null;
+    };
+    const flux = sources.length ? await sourceSuivante() : null;
     if (!flux) {
       incident = "flux introuvable";
       poserIframe("Le flux direct est injoignable depuis cette télé.");
@@ -869,11 +888,20 @@ async function lire(item, num) {
       video.play().catch(() => {});
     } else if (window.Hls && Hls.isSupported()) {
       hls = new Hls({ maxBufferLength: 30, backBufferLength: 30, startLevel: -1, capLevelToPlayerSize: true });
+      let dejaBascule = false;
       hls.on(Hls.Events.ERROR, (evt, data) => {
         if (!data || !data.fatal) return;
         incident = "hls.js " + (data.details || "erreur");
         window.__lecture = { etat: "echec", incident: incident };
-          secours("Le flux HD a été refusé par cette télé.");
+        if (!dejaBascule) {
+          dejaBascule = true;
+          sourceSuivante().then((autre) => {
+            if (autre && hls) { rangSource--; hls.loadSource(autre); hls.startLoad(); return; }
+            secours("Le flux HD a été refusé par cette télé.");
+          });
+          return;
+        }
+        secours("Le flux HD a été refusé par cette télé.");
       });
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         construireBoutons();
