@@ -1,0 +1,16 @@
+/* =======================================================================
+   Corrections demandees par le proprietaire (8 novembre 2026)
+   But : plus aucun rond qui tourne, plus aucun cone de lecture a l'ecran.
+   Ecran de chargement = noir simple. Le message d'erreur, lui, reste.
+   ======================================================================= */
+
+/* 1. Ecran de chargement du lecteur : noir, sans cercle et sans texte */
+.lecteur .attente{background:#000 !important}
+.lecteur .attente>*{display:none !important}
+.lecteur .attente .rond{display:none !important}
+
+/* 2. Le grand rond avec le cone (flash de commande) ne s'affiche plus */
+.lecteur .flash{display:none !important}
+
+/* 3. Demarrage de l'application : le rond qui tourne disparait aussi */
+#chargeur .rond{display:none !important}
