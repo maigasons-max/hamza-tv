@@ -1,0 +1,6 @@
+#EXTM3U
+#EXT-X-VERSION:4
+#EXT-X-INDEPENDENT-SEGMENTS
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="Français",LANGUAGE="fr",DEFAULT=YES,AUTOSELECT=YES,URI="https://ep-distribution.miraculous.to/episodes/audio_NEW/fr/612/audio/media_0.m3u8"
+#EXT-X-STREAM-INF:BANDWIDTH=7500000,RESOLUTION=1920x1080,CODECS="avc1.4d4028,mp4a.40.2",AUDIO="audio"
+https://ep-distribution.miraculous.to/episodes/video_NEW/612/video/media_0.m3u8

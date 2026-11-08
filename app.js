@@ -324,6 +324,14 @@ function lire(item, num) {
     if (message) { avisTexte.textContent = message; avis.hidden = false; }
   };
 
+  const poserAvis = (message) => {
+    arreterCompteur();
+    retirerVideo();
+    if (charge.parentNode) charge.remove();
+    avisTexte.textContent = message;
+    avis.hidden = false;
+  };
+
   let phase = "Connexion au lecteur";
   const demarrerCompteur = () => {
     arreterCompteur();
@@ -332,7 +340,7 @@ function lire(item, num) {
       secondes++;
       if (secondes >= LIMITE_ATTENTE) {
         arreterCompteur();
-        poserIframe("Cette télé n'a pas démarré la vidéo HD en " + LIMITE_ATTENTE + " s. Mode de secours activé.");
+        (item.type === "natif" ? poserAvis : poserIframe)("La vidéo n'a pas démarré en " + LIMITE_ATTENTE + " s sur cette télé.");
         return;
       }
       if (etape.isConnected && charge.isConnected) {
@@ -352,7 +360,7 @@ function lire(item, num) {
     phase = "Connexion au lecteur";
     demarrerCompteur();
 
-    const flux = await fluxDirect(url);
+    const flux = item.type === "natif" ? url : await fluxDirect(url);
     if (!flux) { poserIframe("Le flux direct est injoignable depuis cette télé. Mode de secours activé."); return; }
     if (!d.isConnected) return;
 
@@ -387,9 +395,13 @@ function lire(item, num) {
       surveiller();
     }, { once: true });
 
-    const secours = (motif) => poserIframe(motif);
+    const secours = (motif) => (item.type === "natif" ? poserAvis(motif) : poserIframe(motif));
 
-    if (window.Hls && Hls.isSupported()) {
+    if (item.type === "natif") {
+      video.src = flux;
+      video.addEventListener("error", () => poserAvis("Cette télé n'arrive pas à lire ce format vidéo."), { once: true });
+      video.play().catch(() => {});
+    } else if (window.Hls && Hls.isSupported()) {
       hls = new Hls({ maxBufferLength: 30, backBufferLength: 30, startLevel: -1, capLevelToPlayerSize: true });
       hls.on(Hls.Events.ERROR, (evt, data) => { if (data && data.fatal) secours("Le flux HD a été refusé par cette télé. Mode de secours activé."); });
       hls.on(Hls.Events.MANIFEST_PARSED, () => { video.play().catch(() => {}); });
