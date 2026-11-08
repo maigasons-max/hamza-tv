@@ -1,0 +1,53 @@
+:root{
+  --fond:#0b0b12; --carte:#15151f; --carte2:#1e1e2c; --texte:#f4f4f8;
+  --doux:#9a9ab0; --accent:#ff3d7f; --or:#ffd666;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--fond);color:var(--texte);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+#chargeur{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--fond);z-index:50}
+.rond{width:44px;height:44px;border-radius:50%;border:3px solid #24243a;border-top-color:var(--accent);animation:t .9s linear infinite}
+@keyframes t{to{transform:rotate(360deg)}}
+.cache{display:none!important}
+
+/* ---- accueil : une seule carte ---- */
+.accueil{padding:22px 18px 40px}
+.titre-app{display:flex;align-items:center;gap:11px;margin-bottom:26px}
+.titre-app img{width:36px;height:36px;border-radius:11px}
+.titre-app b{font-size:16px;letter-spacing:.02em}
+.titre-app span{font-size:9.5px;letter-spacing:.2em;color:var(--or);display:block;text-transform:uppercase}
+
+.series{display:flex;flex-direction:column;gap:18px}
+.carte-serie{display:block;width:100%;padding:0;border:0;background:var(--carte);border-radius:20px;
+  overflow:hidden;text-align:left;color:inherit;box-shadow:0 18px 40px rgba(0,0,0,.45)}
+.carte-serie .visuel{position:relative;width:100%;aspect-ratio:16/9;background:#000}
+.carte-serie .visuel img{width:100%;height:100%;object-fit:cover;display:block}
+.carte-serie .visuel .voile{position:absolute;inset:0;background:linear-gradient(to top,rgba(10,10,18,.95) 6%,rgba(10,10,18,.15) 55%,transparent)}
+.carte-serie .visuel .lecture{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:60px;height:60px;border-radius:50%;background:rgba(255,61,127,.94);display:flex;align-items:center;justify-content:center}
+.carte-serie .visuel .lecture:after{content:"";border-left:20px solid #fff;border-top:12px solid transparent;border-bottom:12px solid transparent;margin-left:5px}
+.carte-serie .infos{padding:15px 16px 17px}
+.carte-serie .infos b{display:block;font-size:19px;letter-spacing:-.01em}
+.carte-serie .infos small{display:block;color:var(--doux);font-size:12.5px;margin-top:5px}
+.carte-serie.focus{outline:2px solid var(--or);outline-offset:3px}
+.carte-serie .infos .vf{display:inline-block;margin-top:11px;font-size:10px;letter-spacing:.16em;
+  color:#0b0b12;background:var(--or);border-radius:6px;padding:4px 9px;font-weight:700}
+
+/* ---- liste des episodes ---- */
+.entete{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid #1b1b28;position:sticky;top:0;background:rgba(11,11,18,.95);backdrop-filter:blur(10px);z-index:10}
+.entete button{background:none;border:0;color:var(--doux);font-size:22px;padding:4px 8px;cursor:pointer}
+.entete b{font-size:15px;font-weight:600}
+.entete small{display:block;color:var(--doux);font-size:11px;font-weight:400}
+.episodes{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:10px;padding:16px}
+.ep{background:var(--carte);border:1px solid #26263a;border-radius:14px;padding:15px 0;text-align:center;
+  font-size:15px;font-weight:600;color:var(--texte);cursor:pointer}
+.ep:active,.ep.focus{background:var(--carte2);border-color:var(--or);outline:none}
+.ep small{display:block;font-size:9.5px;color:var(--doux);letter-spacing:.1em;margin-top:3px}
+
+/* ---- lecteur ---- */
+.lecteur{position:fixed;inset:0;background:#000;z-index:40;display:flex;flex-direction:column}
+.lecteur .barre{display:flex;align-items:center;gap:8px;padding:10px 12px;background:#0b0b12;border-bottom:1px solid #1b1b28}
+.lecteur .barre button{background:none;border:0;color:var(--doux);font-size:20px;padding:4px 8px;cursor:pointer}
+.lecteur .barre b{font-size:13px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lecteur .zone{flex:1;background:#000}
+.lecteur iframe{width:100%;height:100%;border:0;display:block}
