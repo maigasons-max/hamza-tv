@@ -1,4 +1,4 @@
-/* Hamza TV — plusieurs séries, leurs épisodes, un lecteur qui marche. */
+/* Hamza TV — catalogue de séries et de films, avec recherche. */
 const app = () => document.querySelector("#app");
 let CATALOGUE = window.CATALOGUE || null;
 
@@ -8,16 +8,25 @@ const SOURCES = [
   "https://raw.githubusercontent.com/maigasons-max/hamza-tv/main/serie.json"
 ];
 
+const sansAccent = (s) => String(s || "").toLowerCase()
+  .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+  .replace(/[^a-z0-9]+/g, " ").trim();
+
 /* accepte aussi l'ancien format (une seule série à la racine) */
 function normaliser(d) {
   if (!d) return null;
   if (Array.isArray(d.series)) return d;
+  if (Array.isArray(d.films)) return { v: Number(d.v || 0), series: d.films };
   if (d.episodes) return { v: Number(d.v || 0), series: [d] };
   return null;
 }
 
-function nbEpisodes(serie) {
-  return Object.keys((serie && serie.episodes) || {}).length;
+function nbEpisodes(item) {
+  return Object.keys((item && item.episodes) || {}).length;
+}
+
+function estFilm(item) {
+  return item && (item.type === "film" || (!item.type && nbEpisodes(item) === 1));
 }
 
 function qualite(d) {
@@ -46,108 +55,188 @@ async function actualiser() {
   if (candidats.length) CATALOGUE = candidats[0];
 }
 
-/* selon la série : lien direct, ou identifiant YouTube */
-function lienEpisode(serie, num) {
-  const v = (serie.episodes || {})[num];
+/* selon l'élément : lien direct, ou identifiant YouTube */
+function lienEpisode(item, num) {
+  const v = (item.episodes || {})[num];
   if (!v) return "";
-  if (serie.type === "youtube") {
+  if (item.type === "youtube") {
     return "https://www.youtube.com/embed/" + v + "?playsinline=1&rel=0&modestbranding=1";
   }
   return v;
 }
 
+/* ---------- accueil ---------- */
 function accueil() {
-  const cartes = CATALOGUE.series.map((s, i) => `
-      <button class="carte-serie" data-serie="${i}">
-        <div class="visuel">
-          <img src="${s.affiche}" alt="${s.t}">
-          <div class="voile"></div>
-          <div class="lecture"></div>
-        </div>
-        <div class="infos">
-          <b>${s.t}</b>
-          <small>${s.s} · ${nbEpisodes(s)} épisodes</small>
-          <span class="vf">${s.badge || "VF · sans publicité"}</span>
-        </div>
-      </button>`).join("");
-
   app().innerHTML = `
     <div class="accueil">
       <div class="titre-app">
-        <img class="logo-entete" src="assets/icon-192.png" alt="Hamza TV">
+        <img src="assets/icon-192.png" alt="Hamza TV">
         <div><b>Hamza TV</b><span>Version française</span></div>
       </div>
-      <div class="series">${cartes}</div>
+      <div class="recherche">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg>
+        <input id="q" type="search" inputmode="search" autocomplete="off" spellcheck="false"
+               placeholder="Rechercher un film, une série…" aria-label="Rechercher">
+      </div>
+      <div class="compte" id="compte"></div>
+      <div class="series" id="grille"></div>
     </div>`;
 
-  document.querySelectorAll("[data-serie]").forEach(el => {
-    el.onclick = () => listeEpisodes(CATALOGUE.series[Number(el.dataset.serie)]);
+  const champ = document.querySelector("#q");
+  champ.value = filtre;
+  champ.addEventListener("input", () => { filtre = champ.value; grille(); });
+  champ.addEventListener("keydown", (e) => { if (e.key === "Enter") champ.blur(); });
+
+  grille();
+  brancherFocus();
+}
+
+let filtre = "";
+
+function grille() {
+  const box = document.querySelector("#grille");
+  if (!box) return;
+  const q = sansAccent(filtre);
+  const mots = q ? q.split(" ").filter(Boolean) : [];
+  const liste = CATALOGUE.series.filter(s => {
+    if (!mots.length) return true;
+    const cible = sansAccent(s.t + " " + (s.s || "") + " " + (s.alias || ""));
+    return mots.every(m => cible.includes(m));
+  });
+
+  const compte = document.querySelector("#compte");
+  if (compte) {
+    compte.textContent = mots.length
+      ? (liste.length === 1 ? "1 résultat" : liste.length + " résultats")
+      : "";
+  }
+
+  if (!liste.length) {
+    box.innerHTML = `<p class="vide">Rien trouvé pour « ${filtre.replace(/[<>&]/g, "")} ».<br><small>Dis-moi le titre et je l'ajoute.</small></p>`;
+    brancherFocus(true);
+    return;
+  }
+
+  box.innerHTML = liste.map(s => {
+    const film = estFilm(s);
+    const n = nbEpisodes(s);
+    return `
+      <button class="carte-serie" data-id="${s.id}">
+        <div class="visuel">
+          <img src="${s.affiche}" alt="${s.t}" loading="lazy">
+          <div class="voile"></div>
+          <div class="lecture"></div>
+          ${film ? "" : `<span class="nb">${n} ép.</span>`}
+        </div>
+        <div class="infos">
+          <b>${s.t}</b>
+          <small>${film ? "Film" : s.s}</small>
+          <span class="vf">${s.badge || (film ? "VF · sans publicité" : "VF")}</span>
+        </div>
+      </button>`;
+  }).join("");
+
+  box.querySelectorAll("[data-id]").forEach(el => {
+    el.onclick = () => ouvrir(el.dataset.id);
   });
   brancherFocus();
 }
 
-let serieCourante = null;
+function ouvrir(id) {
+  const item = CATALOGUE.series.find(s => s.id === id);
+  if (!item) return;
+  if (estFilm(item)) {
+    const num = Object.keys(item.episodes)[0];
+    lire(item, num);
+  } else {
+    listeEpisodes(item);
+  }
+}
 
-function listeEpisodes(serie) {
-  serieCourante = serie;
-  const nums = Object.keys(serie.episodes).map(Number).sort((a, b) => a - b);
+/* ---------- liste des épisodes ---------- */
+let itemCourant = null;
+
+function listeEpisodes(item) {
+  itemCourant = item;
+  const nums = Object.keys(item.episodes).map(Number).sort((a, b) => a - b);
   app().innerHTML = `
     <div class="entete">
-      <button id="retour">←</button>
-      <div><b>${serie.t}</b><small>${serie.s} · ${nums.length} épisodes</small></div>
+      <button id="retour" aria-label="Retour">←</button>
+      <div><b>${item.t}</b><small>${item.s} · ${nums.length} épisodes</small></div>
     </div>
     <div class="episodes">
       ${nums.map(n => `<div class="ep" data-ep="${n}">${n}<small>ÉPISODE</small></div>`).join("")}
     </div>`;
   document.querySelector("#retour").onclick = accueil;
-  document.querySelectorAll("[data-ep]").forEach(el => el.onclick = () => lire(el.dataset.ep));
+  document.querySelectorAll("[data-ep]").forEach(el => el.onclick = () => lire(itemCourant, el.dataset.ep));
   brancherFocus();
 }
 
-function lire(num) {
-  const url = lienEpisode(serieCourante, num);
+/* ---------- lecteur ---------- */
+function lire(item, num) {
+  const url = lienEpisode(item, num);
   if (!url) return;
   const d = document.createElement("div");
   d.className = "lecteur";
   d.innerHTML = `
     <div class="barre">
-      <button id="fermer">✕</button>
-      <b>${serieCourante.t} · Épisode ${num}</b>
+      <button id="fermer" aria-label="Fermer">✕</button>
+      <b>${item.t}${estFilm(item) ? "" : " · Épisode " + num}</b>
     </div>
     <div class="zone"><iframe src="${url}" allowfullscreen referrerpolicy="origin" allow="autoplay; encrypted-media; fullscreen"></iframe></div>`;
   document.body.appendChild(d);
   d.querySelector("#fermer").onclick = () => d.remove();
 }
 
-/* télécommande : flèches + OK */
+/* ---------- télécommande et clavier ---------- */
 let pos = 0;
 function focusables() {
-  return [...document.querySelectorAll(".ep, .carte-serie, #retour")].filter(e => e.offsetParent);
+  return [...document.querySelectorAll("#q, .carte-serie, .ep, #retour")].filter(e => e.offsetParent);
 }
-function brancherFocus() {
+function brancherFocus(garderIndex) {
   const els = focusables(); if (!els.length) return;
-  pos = 0; els[0].classList.add("focus");
+  if (!garderIndex) pos = 0;
+  pos = Math.min(pos, els.length - 1);
+  els.forEach(e => e.classList.remove("focus"));
+  els[pos].classList.add("focus");
 }
+
 document.addEventListener("keydown", (e) => {
-  if (document.querySelector(".lecteur")) {
-    if (e.key === "Escape" || e.key === "Backspace") { const l = document.querySelector(".lecteur"); if (l) l.remove(); }
+  const lecteur = document.querySelector(".lecteur");
+  if (lecteur) {
+    if (e.key === "Escape" || e.key === "Backspace") lecteur.remove();
     return;
   }
   const els = focusables(); if (!els.length) return;
+  const champ = document.querySelector("#q");
+  const surChamp = document.activeElement === champ;
+
   const bouger = (d) => {
     els[pos] && els[pos].classList.remove("focus");
     pos = (pos + d + els.length) % els.length;
     els[pos].classList.add("focus");
     els[pos].scrollIntoView({ block: "center", behavior: "smooth" });
+    if (els[pos].id !== "q" && surChamp) champ.blur();
   };
-  if (["ArrowRight", "ArrowDown"].includes(e.key)) { e.preventDefault(); bouger(1); }
-  if (["ArrowLeft", "ArrowUp"].includes(e.key)) { e.preventDefault(); bouger(-1); }
-  if (e.key === "Enter") { e.preventDefault(); els[pos] && els[pos].click(); }
+
+  // une lettre tapée pendant qu'une carte est sélectionnée part dans la recherche
+  if (!surChamp && e.key.length === 1 && !e.ctrlKey && !e.metaKey && champ) {
+    champ.focus();
+    return;
+  }
+  if (e.key === "ArrowDown" || e.key === "ArrowRight") { e.preventDefault(); bouger(1); }
+  if (e.key === "ArrowUp" || e.key === "ArrowLeft") { e.preventDefault(); bouger(-1); }
+  if (e.key === "Enter") {
+    if (surChamp) { e.preventDefault(); champ.blur(); return; }
+    e.preventDefault(); els[pos] && els[pos].click();
+  }
   if (e.key === "Escape" || e.key === "Backspace") {
+    if (surChamp) return;
     if (document.querySelector(".episodes")) { e.preventDefault(); accueil(); }
   }
 });
 
+/* ---------- démarrage ---------- */
 (async function () {
   CATALOGUE = normaliser(CATALOGUE);
   // on attend la version en ligne : le fichier pèse quelques Ko, c'est immédiat.
@@ -158,9 +247,9 @@ document.addEventListener("keydown", (e) => {
     app().innerHTML = "<p style='padding:30px;color:#9a9ab0'>Catalogue indisponible.</p>";
     return;
   }
-  if (document.querySelector(".episodes") && serieCourante) {
-    const frais = CATALOGUE.series.find(s => s.id === serieCourante.id);
-    listeEpisodes(frais || serieCourante);
+  if (document.querySelector(".episodes") && itemCourant) {
+    const frais = CATALOGUE.series.find(s => s.id === itemCourant.id);
+    listeEpisodes(frais || itemCourant);
   } else {
     accueil();
   }

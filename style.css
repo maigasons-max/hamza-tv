@@ -10,28 +10,48 @@ html,body{margin:0;height:100%;background:var(--fond);color:var(--texte);
 @keyframes t{to{transform:rotate(360deg)}}
 .cache{display:none!important}
 
-/* ---- accueil : une seule carte ---- */
-.accueil{padding:22px 18px 40px}
-.titre-app{display:flex;align-items:center;gap:11px;margin-bottom:26px}
-.titre-app img{width:52px;height:52px;border-radius:14px;box-shadow:0 6px 18px rgba(255,61,127,.25)}
-.titre-app b{font-size:16px;letter-spacing:.02em}
-.titre-app span{font-size:9.5px;letter-spacing:.2em;color:var(--or);display:block;text-transform:uppercase}
+/* ---- accueil : recherche + grille ---- */
+.accueil{padding:20px 16px 40px}
+.titre-app{display:flex;align-items:center;gap:13px;margin-bottom:20px}
+.titre-app img{width:52px;height:52px;border-radius:15px;box-shadow:0 8px 22px rgba(255,61,127,.22)}
+.titre-app b{font-size:17px;letter-spacing:.01em}
+.titre-app span{font-size:9.5px;letter-spacing:.2em;color:var(--or);display:block;text-transform:uppercase;margin-top:3px}
 
-.series{display:flex;flex-direction:column;gap:18px}
-.carte-serie{display:block;width:100%;padding:0;border:0;background:var(--carte);border-radius:20px;
-  overflow:hidden;text-align:left;color:inherit;box-shadow:0 18px 40px rgba(0,0,0,.45)}
-.carte-serie .visuel{position:relative;width:100%;aspect-ratio:16/9;background:#000}
+.recherche{position:relative;margin-bottom:16px}
+.recherche svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:19px;height:19px;
+  fill:none;stroke:var(--doux);stroke-width:2.1;stroke-linecap:round;pointer-events:none}
+.recherche input{width:100%;padding:14px 16px 14px 44px;border-radius:15px;border:1px solid #23233a;
+  background:var(--carte);color:var(--texte);font-size:14.5px;font-family:inherit;outline:none}
+.recherche input::placeholder{color:#71718c}
+.recherche input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,61,127,.16)}
+.recherche input::-webkit-search-cancel-button{filter:invert(.6)}
+
+.compte{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--doux);margin:0 2px 12px}
+.compte:empty{display:none}
+.vide{color:var(--doux);text-align:center;padding:38px 10px;font-size:14px;line-height:1.7}
+.vide small{font-size:12px;color:#71718c}
+
+.series{display:grid;grid-template-columns:repeat(auto-fill,minmax(156px,1fr));gap:14px}
+@media (max-width:360px){.series{grid-template-columns:1fr}}
+
+.carte-serie{display:block;width:100%;padding:0;border:0;background:var(--carte);border-radius:16px;
+  overflow:hidden;text-align:left;color:inherit;box-shadow:0 12px 28px rgba(0,0,0,.4);cursor:pointer}
+.carte-serie .visuel{position:relative;width:100%;aspect-ratio:16/10;background:#000}
 .carte-serie .visuel img{width:100%;height:100%;object-fit:cover;display:block}
-.carte-serie .visuel .voile{position:absolute;inset:0;background:linear-gradient(to top,rgba(10,10,18,.95) 6%,rgba(10,10,18,.15) 55%,transparent)}
+.carte-serie .visuel .voile{position:absolute;inset:0;background:linear-gradient(to top,rgba(10,10,18,.92) 4%,rgba(10,10,18,.1) 52%,transparent)}
 .carte-serie .visuel .lecture{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-  width:60px;height:60px;border-radius:50%;background:rgba(255,61,127,.94);display:flex;align-items:center;justify-content:center}
-.carte-serie .visuel .lecture:after{content:"";border-left:20px solid #fff;border-top:12px solid transparent;border-bottom:12px solid transparent;margin-left:5px}
-.carte-serie .infos{padding:15px 16px 17px}
-.carte-serie .infos b{display:block;font-size:19px;letter-spacing:-.01em}
-.carte-serie .infos small{display:block;color:var(--doux);font-size:12.5px;margin-top:5px}
+  width:44px;height:44px;border-radius:50%;background:rgba(255,61,127,.92);display:flex;align-items:center;justify-content:center}
+.carte-serie .visuel .lecture:after{content:"";border-left:15px solid #fff;border-top:9px solid transparent;border-bottom:9px solid transparent;margin-left:4px}
+.carte-serie .visuel .nb{position:absolute;top:9px;right:9px;background:rgba(11,11,18,.82);border-radius:7px;
+  padding:3px 7px;font-size:10px;font-weight:700;letter-spacing:.04em}
+.carte-serie .infos{padding:11px 12px 13px}
+.carte-serie .infos b{display:block;font-size:14px;line-height:1.25;letter-spacing:-.01em}
+.carte-serie .infos small{display:block;color:var(--doux);font-size:11px;margin-top:4px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.carte-serie .infos .vf{display:inline-block;margin-top:9px;font-size:9px;letter-spacing:.14em;
+  color:#0b0b12;background:var(--or);border-radius:5px;padding:3px 7px;font-weight:700}
 .carte-serie.focus{outline:2px solid var(--or);outline-offset:3px}
-.carte-serie .infos .vf{display:inline-block;margin-top:11px;font-size:10px;letter-spacing:.16em;
-  color:#0b0b12;background:var(--or);border-radius:6px;padding:4px 9px;font-weight:700}
+.recherche input.focus{border-color:var(--or)}
 
 /* ---- liste des episodes ---- */
 .entete{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid #1b1b28;position:sticky;top:0;background:rgba(11,11,18,.95);backdrop-filter:blur(10px);z-index:10}
