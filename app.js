@@ -211,19 +211,122 @@ function listeEpisodes(item) {
 }
 
 /* ---------- lecteur ---------- */
+/* La page du lecteur tiers autorise notre domaine : on y lit le flux HLS
+   et on le joue nous-mêmes, en plein écran, sans publicité. */
+async function fluxDirect(embed) {
+  try {
+    const r = await fetch(embed, { cache: "no-store" });
+    if (!r.ok) return null;
+    const t = await r.text();
+    const m = t.match(/https?:\/\/[^"'\\\s]+\.m3u8[^"'\\\s]*/);
+    return m ? m[0].replace(/\\\//g, "/") : null;
+  } catch (e) { return null; }
+}
+
+function estYoutube(url) { return /youtu\.?be/.test(url); }
+
 function lire(item, num) {
   const url = lienEpisode(item, num);
   if (!url) return;
+  const titre = item.t + (estFilm(item) ? "" : " · Épisode " + num);
+
   const d = document.createElement("div");
   d.className = "lecteur";
   d.innerHTML = `
+    <div class="zone"><div class="charge"><div class="rond"></div><span>Chargement…</span></div></div>
     <div class="barre">
       <button id="fermer" aria-label="Fermer">✕</button>
-      <b>${item.t}${estFilm(item) ? "" : " · Épisode " + num}</b>
-    </div>
-    <div class="zone"><iframe src="${url}" allowfullscreen referrerpolicy="origin" allow="autoplay; encrypted-media; fullscreen"></iframe></div>`;
+      <b>${titre}</b>
+      <div class="commandes">
+        <button data-rec="-10" aria-label="Reculer de 10 secondes">−10 s</button>
+        <button data-lecture aria-label="Lecture ou pause">❚❚</button>
+        <button data-rec="10" aria-label="Avancer de 10 secondes">+10 s</button>
+      </div>
+    </div>`;
   document.body.appendChild(d);
-  d.querySelector("#fermer").onclick = () => d.remove();
+
+  const zone = d.querySelector(".zone");
+  const barre = d.querySelector(".barre");
+  const charge = d.querySelector(".charge");
+  let hls = null, minuterie = null;
+
+  const fermer = () => {
+    try { hls && hls.destroy(); } catch (e) {}
+    if (d.video) { try { d.video.pause(); } catch (e) {} }
+    clearTimeout(minuterie);
+    d.remove();
+  };
+  d.fermer = fermer;
+  d.querySelector("#fermer").onclick = fermer;
+
+  const montrerBarre = () => {
+    barre.classList.remove("cache");
+    clearTimeout(minuterie);
+    minuterie = setTimeout(() => barre.classList.add("cache"), 4500);
+  };
+  d.montrerBarre = montrerBarre;
+  d.addEventListener("mousemove", montrerBarre);
+  montrerBarre();
+
+  const poserBoutons = () => {
+    d.querySelectorAll("[data-rec]").forEach(b => b.onclick = () => {
+      if (!d.video) return;
+      d.video.currentTime = Math.max(0, d.video.currentTime + Number(b.dataset.rec));
+    });
+    d.querySelector("[data-lecture]").onclick = () => {
+      if (!d.video) return;
+      d.video.paused ? d.video.play() : d.video.pause();
+    };
+  };
+
+  const lecteurIframe = (src) => {
+    charge.remove();
+    const i = document.createElement("iframe");
+    i.src = src;
+    i.allowFullscreen = true;
+    i.setAttribute("allow", "autoplay; encrypted-media; fullscreen");
+    i.setAttribute("referrerpolicy", "origin");
+    zone.appendChild(i);
+  };
+
+  if (estYoutube(url)) { lecteurIframe(url); poserBoutons(); return; }
+
+  (async () => {
+    const flux = await fluxDirect(url);
+    if (!flux) { lecteurIframe(url); poserBoutons(); return; }
+
+    const video = document.createElement("video");
+    video.setAttribute("playsinline", "");
+    video.preload = "auto";
+    zone.appendChild(video);
+    zone.style.position = "relative";
+    d.video = video;
+    poserBoutons();
+    video.addEventListener("playing", () => { if (charge.parentNode) charge.remove(); }, { once: true });
+
+    const secours = () => {
+      try { hls && hls.destroy(); } catch (e) {}
+      hls = null;
+      if (video.parentNode) video.remove();
+      d.video = null;
+      if (zone.querySelector("iframe")) return;
+      lecteurIframe(url);
+    };
+
+    if (window.Hls && Hls.isSupported()) {
+      hls = new Hls({ maxBufferLength: 30, backBufferLength: 30 });
+      hls.on(Hls.Events.ERROR, (evt, data) => { if (data && data.fatal) secours(); });
+      hls.on(Hls.Events.MANIFEST_PARSED, () => { video.play().catch(() => {}); });
+      hls.loadSource(flux);
+      hls.attachMedia(video);
+    } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = flux;
+      video.addEventListener("error", secours, { once: true });
+      video.play().catch(() => {});
+    } else {
+      secours();
+    }
+  })();
 }
 
 /* ---------- télécommande et clavier ---------- */
@@ -242,7 +345,15 @@ function brancherFocus(garderIndex) {
 document.addEventListener("keydown", (e) => {
   const lecteur = document.querySelector(".lecteur");
   if (lecteur) {
-    if (e.key === "Escape" || e.key === "Backspace") lecteur.remove();
+    e.preventDefault();
+    const v = lecteur.video;
+    lecteur.montrerBarre && lecteur.montrerBarre();
+    if (e.key === "Escape" || e.key === "Backspace") { lecteur.fermer ? lecteur.fermer() : lecteur.remove(); return; }
+    if (e.key === "ArrowLeft" && v) v.currentTime = Math.max(0, v.currentTime - 10);
+    if (e.key === "ArrowRight" && v) v.currentTime = v.currentTime + 10;
+    if (e.key === "ArrowUp" && v) v.volume = Math.min(1, v.volume + 0.1);
+    if (e.key === "ArrowDown" && v) v.volume = Math.max(0, v.volume - 0.1);
+    if (e.key === "Enter" || e.key === " ") { if (v) v.paused ? v.play() : v.pause(); }
     return;
   }
   const els = focusables(); if (!els.length) return;
