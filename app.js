@@ -101,7 +101,7 @@ function accueil() {
     <div class="accueil">
       <div class="titre-app">
         <img src="assets/icon-192.png" alt="Hamza TV">
-        <div><b>Hamza TV</b><span>Version française</span></div>
+        <div><b>Hamza TV</b><span>Version française · v7.1</span></div>
       </div>
       <div class="recherche">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg>
@@ -211,14 +211,20 @@ function listeEpisodes(item) {
 }
 
 /* ---------- lecteur ---------- */
-/* La page du lecteur tiers autorise notre domaine : on y lit le flux HLS
-   et on le joue nous-mêmes, en plein écran, sans publicité. */
+/* On lit nous-mêmes le flux direct du lecteur (il autorise notre domaine).
+   Le lecteur raconte toujours ce qu'il fait et bascule seul en secours,
+   parce que certaines TV n'affichent jamais le flux HD. */
+const LIMITE_ATTENTE = 14; // secondes avant de passer en mode de secours
+
 async function fluxDirect(embed) {
   try {
-    const r = await fetch(embed, { cache: "no-store" });
+    const ctrl = new AbortController();
+    const garde = setTimeout(() => ctrl.abort(), 9000);
+    const r = await fetch(embed, { cache: "no-store", signal: ctrl.signal });
+    clearTimeout(garde);
     if (!r.ok) return null;
-    const t = await r.text();
-    const m = t.match(/https?:\/\/[^"'\\\s]+\.m3u8[^"'\\\s]*/);
+    const texte = await r.text();
+    const m = texte.match(/https?:\/\/[^"'\\\s]+\.m3u8[^"'\\\s]*/);
     return m ? m[0].replace(/\\\//g, "/") : null;
   } catch (e) { return null; }
 }
@@ -233,7 +239,10 @@ function lire(item, num) {
   const d = document.createElement("div");
   d.className = "lecteur";
   d.innerHTML = `
-    <div class="zone"><div class="charge"><div class="rond"></div><span>Chargement…</span></div></div>
+    <div class="zone">
+      <div class="charge"><div class="rond"></div><span id="etape">Connexion au lecteur…</span></div>
+      <div class="avis" hidden><span id="avisTexte"></span><button id="bHd">Réessayer en HD</button></div>
+    </div>
     <div class="barre">
       <button id="fermer" aria-label="Fermer">✕</button>
       <b>${titre}</b>
@@ -248,12 +257,19 @@ function lire(item, num) {
   const zone = d.querySelector(".zone");
   const barre = d.querySelector(".barre");
   const charge = d.querySelector(".charge");
-  let hls = null, minuterie = null;
+  const etape = d.querySelector("#etape");
+  const avis = d.querySelector(".avis");
+  const avisTexte = d.querySelector("#avisTexte");
+  let hls = null, video = null, iframe = null, secondes = 0, compteur = null, barreMinuteur = null;
+
+  const arreterCompteur = () => { clearInterval(compteur); compteur = null; };
 
   const fermer = () => {
+    arreterCompteur();
+    if (d.chien) clearInterval(d.chien);
+    clearTimeout(barreMinuteur);
     try { hls && hls.destroy(); } catch (e) {}
-    if (d.video) { try { d.video.pause(); } catch (e) {} }
-    clearTimeout(minuterie);
+    if (video) { try { video.pause(); } catch (e) {} }
     d.remove();
   };
   d.fermer = fermer;
@@ -261,8 +277,8 @@ function lire(item, num) {
 
   const montrerBarre = () => {
     barre.classList.remove("cache");
-    clearTimeout(minuterie);
-    minuterie = setTimeout(() => barre.classList.add("cache"), 4500);
+    clearTimeout(barreMinuteur);
+    barreMinuteur = setTimeout(() => barre.classList.add("cache"), 4500);
   };
   d.montrerBarre = montrerBarre;
   d.addEventListener("mousemove", montrerBarre);
@@ -278,55 +294,112 @@ function lire(item, num) {
       d.video.paused ? d.video.play() : d.video.pause();
     };
   };
+  poserBoutons();
 
-  const lecteurIframe = (src) => {
-    charge.remove();
-    const i = document.createElement("iframe");
-    i.src = src;
-    i.allowFullscreen = true;
-    i.setAttribute("allow", "autoplay; encrypted-media; fullscreen");
-    i.setAttribute("referrerpolicy", "origin");
-    zone.appendChild(i);
+  const retirerVideo = () => {
+    if (d.chien) { clearInterval(d.chien); d.chien = null; }
+    try { hls && hls.destroy(); } catch (e) {}
+    hls = null;
+    if (video) { try { video.pause(); } catch (e) {} if (video.parentNode) video.remove(); }
+    video = null; d.video = null;
   };
 
-  if (estYoutube(url)) { lecteurIframe(url); poserBoutons(); return; }
+  const poserIframe = (message) => {
+    if (iframe) return;
+    arreterCompteur();
+    retirerVideo();
+    if (charge.parentNode) charge.remove();
+    iframe = document.createElement("iframe");
+    iframe.src = url;
+    iframe.allowFullscreen = true;
+    iframe.setAttribute("allow", "autoplay; encrypted-media; fullscreen");
+    iframe.setAttribute("referrerpolicy", "origin");
+    zone.appendChild(iframe);
+    if (message) { avisTexte.textContent = message; avis.hidden = false; }
+  };
 
-  (async () => {
+  let phase = "Connexion au lecteur";
+  const demarrerCompteur = () => {
+    arreterCompteur();
+    secondes = 0;
+    compteur = setInterval(() => {
+      secondes++;
+      if (secondes >= LIMITE_ATTENTE) {
+        arreterCompteur();
+        poserIframe("Cette télé n'a pas démarré la vidéo HD en " + LIMITE_ATTENTE + " s. Mode de secours activé.");
+        return;
+      }
+      if (etape.isConnected && charge.isConnected) {
+        etape.textContent = phase + "… " + secondes + " s";
+      }
+    }, 1000);
+    if (etape.isConnected && charge.isConnected) etape.textContent = phase + "… 0 s";
+  };
+
+  d.querySelector("#bHd").onclick = () => { demarrer(); };
+
+  const demarrer = async () => {
+    retirerVideo();
+    if (iframe) { iframe.remove(); iframe = null; }
+    avis.hidden = true;
+    if (!charge.parentNode) zone.appendChild(charge);
+    phase = "Connexion au lecteur";
+    demarrerCompteur();
+
     const flux = await fluxDirect(url);
-    if (!flux) { lecteurIframe(url); poserBoutons(); return; }
+    if (!flux) { poserIframe("Le flux direct est injoignable depuis cette télé. Mode de secours activé."); return; }
+    if (!d.isConnected) return;
 
-    const video = document.createElement("video");
+    phase = "Préparation de la vidéo";
+    if (etape.isConnected) etape.textContent = phase + "…";
+    video = document.createElement("video");
     video.setAttribute("playsinline", "");
     video.preload = "auto";
-    zone.appendChild(video);
-    zone.style.position = "relative";
+    zone.insertBefore(video, charge);
     d.video = video;
-    poserBoutons();
-    video.addEventListener("playing", () => { if (charge.parentNode) charge.remove(); }, { once: true });
-
-    const secours = () => {
-      try { hls && hls.destroy(); } catch (e) {}
-      hls = null;
-      if (video.parentNode) video.remove();
-      d.video = null;
-      if (zone.querySelector("iframe")) return;
-      lecteurIframe(url);
+    let dernierTemps = -1, figeeDepuis = 0;
+    const surveiller = () => {
+      if (d.chien) { clearInterval(d.chien); d.chien = null; }
+      if (!video) return;
+      d.chien = setInterval(() => {
+        if (!video || !video.isConnected) { clearInterval(d.chien); d.chien = null; return; }
+        if (video.paused) { dernierTemps = video.currentTime; figeeDepuis = 0; return; }
+        if (video.currentTime > dernierTemps + 0.15) { dernierTemps = video.currentTime; figeeDepuis = 0; return; }
+        figeeDepuis += 2;
+        if (figeeDepuis >= 12) {
+          clearInterval(d.chien); d.chien = null;
+          if (charge.parentNode) charge.remove();
+          poserIframe("La vidéo s'est figée sur cette télé. Mode de secours activé.");
+        }
+      }, 2000);
     };
+    d.surveiller = surveiller;
+
+    video.addEventListener("playing", () => {
+      arreterCompteur();
+      if (charge.parentNode) charge.remove();
+      surveiller();
+    }, { once: true });
+
+    const secours = (motif) => poserIframe(motif);
 
     if (window.Hls && Hls.isSupported()) {
-      hls = new Hls({ maxBufferLength: 30, backBufferLength: 30 });
-      hls.on(Hls.Events.ERROR, (evt, data) => { if (data && data.fatal) secours(); });
+      hls = new Hls({ maxBufferLength: 30, backBufferLength: 30, startLevel: 0, capLevelToPlayerSize: true });
+      hls.on(Hls.Events.ERROR, (evt, data) => { if (data && data.fatal) secours("Le flux HD a été refusé par cette télé. Mode de secours activé."); });
       hls.on(Hls.Events.MANIFEST_PARSED, () => { video.play().catch(() => {}); });
       hls.loadSource(flux);
       hls.attachMedia(video);
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = flux;
-      video.addEventListener("error", secours, { once: true });
+      video.addEventListener("error", () => secours("Le flux HD n'est pas lisible ici. Mode de secours activé."), { once: true });
       video.play().catch(() => {});
     } else {
-      secours();
+      secours("Le lecteur vidéo intégré n'est pas disponible sur cette télé. Mode de secours activé.");
     }
-  })();
+  };
+
+  if (estYoutube(url)) { poserIframe(null); montrerBarre(); return; }
+  demarrer();
 }
 
 /* ---------- télécommande et clavier ---------- */
