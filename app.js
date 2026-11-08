@@ -65,6 +65,36 @@ function lienEpisode(item, num) {
   return v;
 }
 
+
+/* deux mots se ressemblent-ils ? (une ou deux lettres d'ecart) */
+function ecart(a, b) {
+  if (a === b) return 0;
+  const m = a.length, n = b.length;
+  if (!m || !n) return Math.max(m, n);
+  let prec = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) {
+    const cour = [i];
+    for (let j = 1; j <= n; j++) {
+      cour[j] = Math.min(prec[j] + 1, cour[j - 1] + 1, prec[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    prec = cour;
+  }
+  return prec[n];
+}
+
+function ressemble(cible, mot) {
+  if (mot.length < 3) return cible.includes(mot);
+  const limite = mot.length > 6 ? 2 : 1;
+  if (cible.includes(mot)) return true;
+  if (cible.split(" ").some(x => x.startsWith(mot) || ecart(x, mot) <= limite)) return true;
+  // "fairytail" ecrit d'un seul mot : on compare aux tranches de la version collee
+  const collee = cible.replace(/ /g, "");
+  for (let i = 0; i + mot.length <= collee.length; i++) {
+    if (ecart(collee.slice(i, i + mot.length), mot) <= limite) return true;
+  }
+  return false;
+}
+
 /* ---------- accueil ---------- */
 function accueil() {
   app().innerHTML = `
@@ -98,11 +128,19 @@ function grille() {
   if (!box) return;
   const q = sansAccent(filtre);
   const mots = q ? q.split(" ").filter(Boolean) : [];
-  const liste = CATALOGUE.series.filter(s => {
+  const cibleDe = (s) => sansAccent(s.t + " " + (s.s || "") + " " + (s.alias || ""));
+  // d'abord la correspondance exacte, puis, si rien ne sort, on tolere une faute
+  let liste = CATALOGUE.series.filter(s => {
     if (!mots.length) return true;
-    const cible = sansAccent(s.t + " " + (s.s || "") + " " + (s.alias || ""));
+    const cible = cibleDe(s);
     return mots.every(m => cible.includes(m));
   });
+  if (!liste.length && mots.length) {
+    // les petits mots ("du", "de", "le") ne doivent pas bloquer la recherche
+    const utiles = mots.filter(m => m.length > 2);
+    const garde = utiles.length ? utiles : mots;
+    liste = CATALOGUE.series.filter(s => garde.every(m => ressemble(cibleDe(s), m)));
+  }
 
   const compte = document.querySelector("#compte");
   if (compte) {
