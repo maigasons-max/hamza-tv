@@ -99,26 +99,6 @@ html,body{margin:0;height:100%;background:var(--fond);color:var(--texte);
 .vide{color:var(--doux);text-align:center;padding:clamp(30px,7vh,80px) 16px;font-size:clamp(12px,1.2vw,18px);line-height:1.7}
 .vide small{color:#71718c;font-size:.85em}
 
-/* ---------- liste des episodes ---------- */
-.entete{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;
-  padding:clamp(10px,1.6vh,20px) clamp(16px,4.6vw,90px);
-  background:linear-gradient(180deg,rgba(11,11,18,.98),rgba(11,11,18,.7));backdrop-filter:blur(12px)}
-.entete img{width:clamp(38px,4vw,64px);aspect-ratio:2/3;object-fit:cover;border-radius:8px}
-.entete .retour{border:0;background:rgba(255,255,255,.1);color:#fff;border-radius:50%;
-  width:clamp(34px,3.4vw,52px);height:clamp(34px,3.4vw,52px);font-size:clamp(15px,1.6vw,24px);cursor:pointer;font-family:inherit}
-.entete .retour.focus,.entete .retour.focus-visible{background:#fff;color:#000;outline:none}
-.entete .titre{flex:1;min-width:0}
-.entete b{display:block;font-size:clamp(14px,1.7vw,28px);font-weight:700;letter-spacing:-.01em}
-.entete small{display:block;color:var(--doux);font-size:clamp(10px,1vw,16px);margin-top:2px}
-.episodes{display:grid;grid-template-columns:repeat(auto-fill,minmax(clamp(62px,5.4vw,104px),1fr));
-  gap:clamp(8px,.9vw,14px);padding:clamp(12px,2vh,30px) clamp(16px,4.6vw,90px) clamp(30px,5vh,70px)}
-.ep{background:var(--carte);border:1px solid #24243a;border-radius:clamp(10px,1vw,16px);
-  padding:clamp(10px,1.4vh,18px) 0;text-align:center;font-size:clamp(13px,1.3vw,22px);font-weight:700;
-  color:var(--texte);cursor:pointer;transition:transform .15s,background .15s}
-.ep small{display:block;font-size:clamp(7px,.75vw,12px);color:var(--doux);letter-spacing:.12em;margin-top:3px;font-weight:600}
-.ep.focus,.ep:focus{outline:none;background:#fff;color:#000;transform:scale(1.05)}
-.ep.focus small{color:#4a4a58}
-
 /* ---------- lecteur plein écran ---------- */
 .lecteur{position:fixed;inset:0;z-index:60;background:#05050b;overflow:hidden}
 .lecteur .zone{position:absolute;inset:0;
@@ -203,13 +183,48 @@ html,body{margin:0;height:100%;background:var(--fond);color:var(--texte);
   .carte-serie{width:clamp(180px,13vw,260px)}
 }
 
-/* ---------- blocs de saisons ---------- */
-.saisons{padding:clamp(10px,2vh,26px) 0 clamp(30px,5vh,70px)}
-.bloc-saison{margin-bottom:clamp(16px,3vh,40px)}
-.bloc-saison h2{display:flex;align-items:baseline;gap:clamp(8px,1vw,16px);
-  margin:0 clamp(16px,4.6vw,90px) clamp(6px,1vh,12px);
-  font-size:clamp(14px,1.8vw,32px);letter-spacing:-.01em;font-weight:800}
-.bloc-saison h2:before{content:"";width:clamp(4px,0.35vw,6px);height:1em;border-radius:3px;
-  background:linear-gradient(180deg,var(--a),var(--b));align-self:center}
-.bloc-saison h2 small{color:var(--doux);font-size:clamp(9px,1vw,16px);font-weight:600;letter-spacing:.06em}
-.bloc-saison .episodes{padding-top:0}
+/* ---------- fiche serie, saisons et episodes ---------- */
+.retour-coin{position:fixed;left:clamp(10px,2.4vw,30px);top:clamp(10px,2.4vh,26px);z-index:30;
+  border:0;cursor:pointer;font-family:inherit;color:#fff;width:clamp(36px,4vw,60px);height:clamp(36px,4vw,60px);
+  border-radius:50%;background:rgba(255,255,255,.12);font-size:clamp(20px,2.4vw,34px);line-height:1;
+  display:flex;align-items:center;justify-content:center}
+.retour-coin.focus{background:#fff;color:#000}
+.fiche{padding:clamp(16px,4vh,44px) clamp(14px,4.6vw,90px) clamp(40px,7vh,90px)}
+.fiche-tete{display:flex;gap:clamp(14px,2.2vw,36px);align-items:flex-start;margin-bottom:clamp(14px,2.6vh,34px)}
+.affiche-fiche{flex:none;width:clamp(92px,12vw,210px);aspect-ratio:2/3;object-fit:cover;border-radius:clamp(10px,1vw,18px);
+  background:#1a1a26;box-shadow:0 18px 40px rgba(0,0,0,.5)}
+.fiche-infos{min-width:0;flex:1;padding-top:clamp(0px,.6vh,8px)}
+.fiche-infos h1{margin:0 0 clamp(4px,.7vh,8px);font-size:clamp(19px,2.8vw,52px);letter-spacing:-.02em;line-height:1.1}
+.fiche-infos p{margin:0 0 clamp(4px,.8vh,10px);color:var(--doux);font-size:clamp(11px,1.25vw,22px)}
+.fiche-infos p.reprise{color:#ffb2c6}
+.fiche-actions{display:flex;gap:clamp(8px,1vw,14px);margin-top:clamp(8px,1.4vh,18px);flex-wrap:wrap}
+.fiche-actions .bouton{border:0;cursor:pointer;font-family:inherit;color:#fff;display:inline-flex;align-items:center;
+  gap:8px;padding:clamp(9px,1.5vh,16px) clamp(16px,2vw,30px);border-radius:clamp(10px,1vw,16px);
+  background:rgba(255,255,255,.1);font-size:clamp(11px,1.3vw,20px);font-weight:700;transition:transform .15s,background .15s,color .15s}
+.fiche-actions .bouton.fort{background:linear-gradient(135deg,var(--a),var(--b))}
+.fiche-actions .bouton.focus{background:#fff;color:#000;transform:scale(1.04)}
+
+.onglets-saison{display:flex;gap:clamp(6px,.8vw,12px);overflow-x:auto;padding:clamp(2px,.6vh,8px) 0 clamp(10px,1.6vh,18px);
+  scrollbar-width:none}
+.onglets-saison::-webkit-scrollbar{display:none}
+.onglet-saison{flex:none;border:1px solid rgba(255,255,255,.14);cursor:pointer;font-family:inherit;color:#d6d6e6;
+  background:rgba(255,255,255,.05);padding:clamp(8px,1.3vh,14px) clamp(12px,1.6vw,24px);border-radius:999px;
+  font-size:clamp(11px,1.2vw,19px);font-weight:700;display:flex;align-items:center;gap:8px;transition:.15s}
+.onglet-saison small{color:var(--doux);font-size:clamp(9px,.95vw,14px);font-weight:600}
+.onglet-saison.on{background:linear-gradient(135deg,rgba(255,46,99,.22),rgba(122,44,255,.22));border-color:rgba(255,92,140,.6);color:#fff}
+.onglet-saison.focus{background:#fff;color:#000;border-color:#fff}
+.onglet-saison.focus small{color:#555}
+.titre-saison{display:flex;align-items:baseline;gap:clamp(8px,1vw,14px);margin:clamp(4px,1vh,10px) 0 clamp(8px,1.4vh,16px);
+  font-size:clamp(13px,1.5vw,26px);font-weight:800}
+.titre-saison small{color:var(--doux);font-size:clamp(9px,1vw,15px);font-weight:600}
+
+/* ---------- grille des episodes ---------- */
+.episodes{display:grid;grid-template-columns:repeat(auto-fill,minmax(clamp(58px,6vw,104px),1fr));
+  gap:clamp(6px,.9vw,14px);padding:0 clamp(0px,0.2vw,4px) clamp(20px,4vh,40px)}
+.ep{position:relative;aspect-ratio:1/1;border-radius:clamp(9px,.9vw,16px);background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;cursor:pointer;font-weight:800;font-size:clamp(13px,1.5vw,24px);color:#f0f0f8;
+  transition:transform .14s,background .14s,border-color .14s,color .14s}
+.ep small{font-size:clamp(6px,.6vw,10px);letter-spacing:.1em;color:var(--doux);font-weight:700}
+.ep.focus{background:#fff;color:#000;border-color:#fff;transform:scale(1.06);outline:none}
+.ep.focus small{color:#555}

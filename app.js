@@ -362,12 +362,16 @@ function ouvrir(id) {
 /* ---------- liste des épisodes ---------- */
 let itemCourant = null;
 
-function listeEpisodes(item) {
+let saisonAffichee = null;
+
+function nomDeSaison(item, saison) {
+  return (item.saisonNoms || {})[saison] || ("Saison " + saison);
+}
+
+function listeEpisodes(item, saisonDemandee) {
   itemCourant = item;
   const nums = Object.keys(item.episodes).map(Number).sort((a, b) => a - b);
-  const r = reprises()[item.id];
 
-  // on regroupe par saison : un bloc par saison, episodes numerotes dans leur saison
   const parSaison = new Map();
   nums.forEach(n => {
     const saison = (item.saisonDe || {})[n] || 1;
@@ -375,43 +379,71 @@ function listeEpisodes(item) {
     parSaison.get(saison).push(n);
   });
   const saisons = [...parSaison.keys()].sort((a, b) => a - b);
-  const nomSaison = (s) => (item.saisonNoms || {})[s] || ("Saison " + s);
 
-  const reperes = nums.map(n => {
-    const saison = (item.saisonDe || {})[n] || 1;
-    return { n, saison, rang: parSaison.get(saison).indexOf(n) + 1, num: (item.numero || {})[n] };
-  });
+  const r = reprises()[item.id];
+  const saisonReprise = r ? ((item.saisonDe || {})[r.ep] || 1) : null;
+  saisonAffichee = saisons.includes(saisonDemandee) ? saisonDemandee : (saisonReprise || saisons[0]);
 
   app().innerHTML = `
-    <div class="entete" data-rangee>
-      <button id="retour" class="retour f" aria-label="Retour">←</button>
-      <img src="${item.affiche}" alt="">
-      <div class="titre"><b>${item.t}</b><small>${item.s}${r ? " · repris " + nomSaison((item.saisonDe || {})[r.ep] || 1) + ", épisode " + ((item.numero || {})[r.ep] || r.ep) : ""}</small></div>
-      <button id="favori" class="retour f" aria-label="Ma liste">${estFavori(item.id) ? "✓" : "+"}</button>
-    </div>
-    <div class="saisons">
-      ${saisons.map(saison => {
-        const liste = parSaison.get(saison);
-        return `
-        <section class="bloc-saison">
-          <h2>${nomSaison(saison)}<small>${liste.length} épisode${liste.length > 1 ? "s" : ""}</small></h2>
-          <div class="episodes" data-rangee>
-            ${liste.map((n, i) => {
-              const num = (item.numero || {})[n] || (i + 1);
-              return `<div class="ep" data-ep="${n}">${num}<small>ÉPISODE</small></div>`;
-            }).join("")}
+    <button id="retour" class="retour-coin f" aria-label="Retour">‹</button>
+    <div class="fiche">
+      <div class="fiche-tete">
+        <img class="affiche-fiche" src="${item.affiche}" alt="">
+        <div class="fiche-infos">
+          <h1>${item.t}</h1>
+          <p>${item.s}</p>
+          ${r ? `<p class="reprise">Tu en étais à ${nomDeSaison(item, saisonReprise)} · épisode ${(item.numero || {})[r.ep] || r.ep}</p>` : ""}
+          <div class="fiche-actions" data-rangee>
+            <button id="bReprendre" class="bouton fort f">▶ ${r ? "Reprendre" : "Commencer"}</button>
+            <button id="favori" class="bouton f">${estFavori(item.id) ? "✓ Ma liste" : "+ Ma liste"}</button>
           </div>
-        </section>`;
-      }).join("")}
+        </div>
+      </div>
+      <div class="onglets-saison" data-rangee id="onglets"></div>
+      <div id="zone-episodes"></div>
     </div>`;
+
+  const onglets = document.querySelector("#onglets");
+  const zone = document.querySelector("#zone-episodes");
+
+  const peindreSaison = () => {
+    onglets.innerHTML = saisons.map(s =>
+      `<button class="onglet-saison f ${s === saisonAffichee ? "on" : ""}" data-saison="${s}">${nomDeSaison(item, s)}
+        <small>${(parSaison.get(s) || []).length}</small></button>`).join("");
+
+    const liste = parSaison.get(saisonAffichee) || [];
+    zone.innerHTML = `
+      <div class="titre-saison">${nomDeSaison(item, saisonAffichee)}
+        <small>${liste.length} épisode${liste.length > 1 ? "s" : ""}</small></div>
+      <div class="episodes" data-rangee>
+        ${liste.map(n => `<div class="ep" data-ep="${n}">${(item.numero || {})[n] || n}<small>ÉPISODE</small></div>`).join("")}
+      </div>`;
+
+    onglets.querySelectorAll("[data-saison]").forEach(el => {
+      el.onclick = () => {
+        const s = Number(el.dataset.saison);
+        if (s === saisonAffichee) return;
+        saisonAffichee = s;
+        peindreSaison();
+        const actif = onglets.querySelector(".onglet-saison.on");
+        if (actif) { mettreFocus(actif); actif.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" }); }
+      };
+    });
+    zone.querySelectorAll("[data-ep]").forEach(el => el.onclick = () => lire(itemCourant, el.dataset.ep));
+  };
 
   document.querySelector("#retour").onclick = accueil;
   document.querySelector("#favori").onclick = (ev) => {
     const ajoute = basculerFavori(item.id);
-    ev.currentTarget.textContent = ajoute ? "✓" : "+";
+    ev.currentTarget.textContent = ajoute ? "✓ Ma liste" : "+ Ma liste";
     toast(ajoute ? item.t + " ajouté à ta liste" : item.t + " retiré de ta liste");
   };
-  document.querySelectorAll("[data-ep]").forEach(el => el.onclick = () => lire(itemCourant, el.dataset.ep));
+  document.querySelector("#bReprendre").onclick = () => {
+    const depart = r ? r.ep : String(nums[0]);
+    lire(item, depart);
+  };
+
+  peindreSaison();
   brancherFocus();
 }
 
@@ -918,7 +950,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" || e.key === "Backspace") {
     if (surChamp) return;
     e.preventDefault();
-    if (document.querySelector(".episodes")) accueil();
+    if (document.querySelector(".fiche")) accueil();
     else if (filtre) { filtre = ""; rendre("accueil"); }
   }
 });
