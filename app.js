@@ -207,6 +207,13 @@ function contenuHTML() {
       : `<p class="vide">Rien trouvé pour « ${filtre.replace(/[<>&]/g, "")} ».<br><small>Dis-moi le titre et je l'ajoute.</small></p>`;
   }
 
+  const parTendance = CATALOGUE.series.slice().sort((x, y) => (x.tendance || 9) - (y.tendance || 9));
+
+  if (vue === "tendances") {
+    return `<div class="rangees"><div class="rangee"><h3>Les tendances du moment</h3>
+      <div class="rail" data-rangee>${parTendance.map(s => carteSerie(s)).join("")}</div></div></div>`;
+  }
+
   if (vue === "series") {
     return `<div class="grille" data-rangee>${CATALOGUE.series.map(s => carteSerie(s)).join("")}</div>`;
   }
@@ -222,6 +229,8 @@ function contenuHTML() {
   const enCours = CATALOGUE.series.filter(s => reprises()[s.id]);
   const favs = CATALOGUE.series.filter(s => estFavori(s.id));
   const rangees = [];
+  rangees.push(`<div class="rangee"><h3>Tendances</h3>
+    <div class="rail" data-rangee>${CATALOGUE.series.slice().sort((x, y) => (x.tendance || 9) - (y.tendance || 9)).map(s => carteSerie(s)).join("")}</div></div>`);
   if (enCours.length) {
     rangees.push(`<div class="rangee"><h3>Reprendre la lecture</h3>
       <div class="rail" data-rangee>${enCours.map(s => carteSerie(s, { reprise: true })).join("")}</div></div>`);
@@ -278,6 +287,7 @@ function rendre(nouvelleVue) {
     <div class="nav" data-rangee>
       <div class="logo">${LOGO}HAMZA TV</div>
       <div class="pilules">
+        <button class="pilule f ${vue === "tendances" ? "on" : ""}" data-vue="tendances">Tendances</button>
         <button class="pilule f ${vue === "accueil" ? "on" : ""}" data-vue="accueil">Accueil</button>
         <button class="pilule f ${vue === "series" ? "on" : ""}" data-vue="series">Séries</button>
         <button class="pilule f ${vue === "liste" ? "on" : ""}" data-vue="liste">Ma liste</button>
@@ -366,73 +376,233 @@ async function fluxDirect(embed) {
 
 function estYoutube(url) { return /youtu\.?be/.test(url); }
 
-function lire(item, num) {
+function formaterTemps(secondes) {
+  const t = Math.max(0, Math.floor(secondes || 0));
+  const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), c = t % 60;
+  return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(c).padStart(2, "0");
+}
+
+async function lire(item, num) {
   const url = lienEpisode(item, num);
   if (!url) return;
   noterReprise(item, num);
-  const numAffiche = (item.numero || {})[num];
+
+  const nums = Object.keys(item.episodes).map(Number).sort((a, b) => a - b);
+  const rang = nums.indexOf(Number(num));
+  const suivant = rang >= 0 && rang < nums.length - 1 ? String(nums[rang + 1]) : null;
   const sai = (item.saisonDe || {})[num];
-  const titre = item.t + (estFilm(item) ? "" : (sai ? " · S" + sai + " E" + numAffiche : " · Épisode " + num));
+  const nAffiche = (item.numero || {})[num] || num;
+  const sousTitre = estFilm(item) ? "Film · version française"
+    : (sai ? "Saison " + sai + " · Épisode " + nAffiche : "Épisode " + nAffiche);
 
   const d = document.createElement("div");
   d.className = "lecteur";
   d.innerHTML = `
     <div class="zone">
-      <div class="charge"><div class="rond"></div><span id="etape">Connexion au lecteur…</span></div>
-      <div class="avis" hidden><span id="avisTexte"></span><button id="bHd">Réessayer en HD</button></div>
-    </div>
-    <div class="barre">
-      <button id="fermer" aria-label="Fermer">✕</button>
-      <b>${titre}</b>
-      <div class="commandes">
-        <button data-rec="-10" aria-label="Reculer de 10 secondes">−10 s</button>
-        <button data-lecture aria-label="Lecture ou pause">❚❚</button>
-        <button data-rec="10" aria-label="Avancer de 10 secondes">+10 s</button>
+      <div class="attente" id="attente"><div class="rond"></div><span id="etape">Connexion…</span></div>
+      <div class="flash" id="flash"></div>
+      <div class="ui" id="ui">
+        <div class="haut">
+          <button class="retour-lecteur" id="fermer" aria-label="Retour">‹</button>
+          <div class="titres"><h1>${item.t}</h1><p>${sousTitre}</p></div>
+          <div class="marque">${LOGO}<span>HAMZA TV</span></div>
+        </div>
+        <div class="bas">
+          <div class="barre-video" id="barreVideo"><div class="tampon" id="tampon"></div><div class="remplissage" id="remplissage"></div><div class="point" id="point"></div></div>
+          <div class="temps"><span id="tempsActuel">0:00</span><span id="tempsReste">−0:00</span></div>
+          <div class="boutons" id="boutons"></div>
+        </div>
       </div>
+      <div class="avis" hidden><span id="avisTexte"></span><button id="bHd">Réessayer</button></div>
     </div>`;
   document.body.appendChild(d);
 
   const zone = d.querySelector(".zone");
-  const barre = d.querySelector(".barre");
-  const charge = d.querySelector(".charge");
+  const ui = d.querySelector("#ui");
+  const attente = d.querySelector("#attente");
   const etape = d.querySelector("#etape");
   const avis = d.querySelector(".avis");
   const avisTexte = d.querySelector("#avisTexte");
-  let hls = null, video = null, iframe = null, secondes = 0, compteur = null, barreMinuteur = null;
+  const flashEl = d.querySelector("#flash");
+  const barreVideo = d.querySelector("#barreVideo");
+  const remplissage = d.querySelector("#remplissage");
+  const point = d.querySelector("#point");
+  const tampon = d.querySelector("#tampon");
+  const tempsActuel = d.querySelector("#tempsActuel");
+  const tempsReste = d.querySelector("#tempsReste");
+  const boiteBoutons = d.querySelector("#boutons");
 
+  let hls = null, video = null, iframe = null, secondes = 0, compteur = null, minuteurUi = null, flashMinuteur = null;
+  let rangee = 1, colonne = 0;
+  const boutons = [];
+
+  /* ---------- plein écran ---------- */
+  const plein = () => document.fullscreenElement || document.webkitFullscreenElement || null;
+  const entrerPleinEcran = () => {
+    if (plein()) return;
+    const cible = document.documentElement;
+    const f = cible.requestFullscreen || cible.webkitRequestFullscreen;
+    if (f) { try { const r = f.call(cible); if (r && r.catch) r.catch(() => {}); } catch (e) {} }
+  };
+  const sortirPleinEcran = () => {
+    if (!plein()) return;
+    const f = document.exitFullscreen || document.webkitExitFullscreen;
+    if (f) { try { const r = f.call(document); if (r && r.catch) r.catch(() => {}); } catch (e) {} }
+  };
+  const basculerPleinEcran = () => { plein() ? sortirPleinEcran() : entrerPleinEcran(); };
+
+  /* ---------- messages ---------- */
+  const eclat = (texte) => {
+    flashEl.textContent = texte;
+    flashEl.classList.add("vu");
+    clearTimeout(flashMinuteur);
+    flashMinuteur = setTimeout(() => flashEl.classList.remove("vu"), 750);
+  };
+
+  let phase = "Connexion";
   const arreterCompteur = () => { clearInterval(compteur); compteur = null; };
+  const demarrerCompteur = () => {
+    arreterCompteur();
+    secondes = 0;
+    etape.textContent = phase + "… 0 s";
+    compteur = setInterval(() => {
+      secondes++;
+      if (secondes >= LIMITE_ATTENTE) {
+        arreterCompteur();
+        secours("La vidéo n'a pas démarré en " + LIMITE_ATTENTE + " s sur cette télé.");
+        return;
+      }
+      if (etape.isConnected) etape.textContent = phase + "… " + secondes + " s";
+    }, 1000);
+  };
 
+  /* ---------- bandeau de commande ---------- */
+  const reveiller = () => {
+    ui.classList.remove("cache-ui");
+    clearTimeout(minuteurUi);
+    minuteurUi = setTimeout(() => { if (video && !video.paused && avis.hidden) ui.classList.add("cache-ui"); }, 4500);
+  };
+
+  const dessinerTemps = () => {
+    const total = (video && isFinite(video.duration) && video.duration > 0) ? video.duration : 0;
+    const actuel = video ? video.currentTime || 0 : 0;
+    const pct = total ? Math.min(100, (actuel / total) * 100) : 0;
+    remplissage.style.width = pct + "%";
+    point.style.left = pct + "%";
+    tempsActuel.textContent = formaterTemps(actuel);
+    tempsReste.textContent = "−" + formaterTemps(total ? total - actuel : 0);
+    let tamponPct = pct;
+    try {
+      if (video && video.buffered && video.buffered.length) {
+        tamponPct = Math.min(100, (video.buffered.end(video.buffered.length - 1) / (total || 1)) * 100);
+      }
+    } catch (e) {}
+    tampon.style.width = Math.max(pct, tamponPct) + "%";
+  };
+
+  const sauter = (delta) => {
+    if (!video) return;
+    video.currentTime = Math.max(0, Math.min((video.duration || 1e9), video.currentTime + delta));
+    dessinerTemps();
+    eclat((delta > 0 ? "+" : "−") + Math.abs(delta) + " s");
+    reveiller();
+  };
+
+  const basculerLecture = () => {
+    if (!video) return;
+    if (video.paused) { video.play().catch(() => {}); eclat("▶"); }
+    else { video.pause(); eclat("❚❚"); }
+    majBoutons();
+    reveiller();
+  };
+
+  /* qualite : seulement si le flux expose plusieurs niveaux */
+  const hauteurs = () => {
+    if (!hls || !hls.levels || !hls.levels.length) return [];
+    const l = hls.levels.map(x => x.height).filter(Boolean);
+    return [...new Set(l)].sort((a, b) => b - a);
+  };
+  let qualiteAuto = true, qualiteIndex = 0;
+  const appliquerQualite = () => {
+    const h = hauteurs();
+    if (!h.length) return;
+    if (qualiteAuto) { hls.currentLevel = -1; return; }
+    const cible = h[Math.min(qualiteIndex, h.length - 1)];
+    const i = hls.levels.findIndex(l => l.height === cible);
+    if (i >= 0) hls.currentLevel = i;
+  };
+
+  const construireBoutons = () => {
+    boiteBoutons.innerHTML = "";
+    boutons.length = 0;
+    const ajouter = (cle, texte, principal) => {
+      const b = document.createElement("button");
+      b.className = "bouton-lecteur" + (principal ? " principal" : "");
+      b.dataset.cle = cle;
+      b.textContent = texte;
+      b.onclick = () => { activer(cle); };
+      boiteBoutons.appendChild(b);
+      boutons.push(b);
+      return b;
+    };
+    ajouter("moins", "−10 s");
+    ajouter("lecture", "", true);
+    ajouter("plus", "+10 s");
+    if (suivant) ajouter("suivant", "Épisode suivant ›");
+    if (hauteurs().length > 1) ajouter("qualite", "Qualité : auto");
+    ajouter("plein", "⛶ Plein écran");
+    majBoutons();
+  };
+
+  const majBoutons = () => {
+    boutons.forEach(b => {
+      if (b.dataset.cle === "lecture") b.textContent = (video && !video.paused) ? "❚❚ Pause" : "▶ Lecture";
+      if (b.dataset.cle === "qualite") {
+        const h = hauteurs();
+        b.textContent = "Qualité : " + (qualiteAuto ? "auto" : (h[Math.min(qualiteIndex, h.length - 1)] + "p"));
+      }
+    });
+  };
+
+  const activer = (cle) => {
+    if (cle === "moins") sauter(-10);
+    else if (cle === "plus") sauter(10);
+    else if (cle === "lecture") basculerLecture();
+    else if (cle === "suivant") { if (suivant) { const n = suivant; fermer(); lire(item, n); } }
+    else if (cle === "qualite") {
+      const h = hauteurs();
+      if (qualiteAuto) { qualiteAuto = false; qualiteIndex = 0; }
+      else if (qualiteIndex < h.length - 1) { qualiteIndex++; }
+      else { qualiteAuto = true; }
+      appliquerQualite();
+      majBoutons();
+      eclat(qualiteAuto ? "Qualité auto" : h[Math.min(qualiteIndex, h.length - 1)] + "p");
+    }
+    else if (cle === "plein") basculerPleinEcran();
+    reveiller();
+  };
+
+  const peindreFocus = () => {
+    d.querySelectorAll(".foc").forEach(e => e.classList.remove("foc"));
+    if (rangee === 0) d.querySelector("#fermer").classList.add("foc");
+    else if (rangee === 1) barreVideo.classList.add("foc");
+    else if (boutons[colonne]) boutons[colonne].classList.add("foc");
+  };
+
+  /* ---------- lecture ---------- */
   const fermer = () => {
     arreterCompteur();
+    clearTimeout(minuteurUi);
     if (d.chien) clearInterval(d.chien);
-    clearTimeout(barreMinuteur);
     try { hls && hls.destroy(); } catch (e) {}
     if (video) { try { video.pause(); } catch (e) {} }
+    sortirPleinEcran();
     d.remove();
   };
   d.fermer = fermer;
+  d.basculerPleinEcran = basculerPleinEcran;
   d.querySelector("#fermer").onclick = fermer;
-
-  const montrerBarre = () => {
-    barre.classList.remove("cache");
-    clearTimeout(barreMinuteur);
-    barreMinuteur = setTimeout(() => barre.classList.add("cache"), 4500);
-  };
-  d.montrerBarre = montrerBarre;
-  d.addEventListener("mousemove", montrerBarre);
-  montrerBarre();
-
-  const poserBoutons = () => {
-    d.querySelectorAll("[data-rec]").forEach(b => b.onclick = () => {
-      if (!d.video) return;
-      d.video.currentTime = Math.max(0, d.video.currentTime + Number(b.dataset.rec));
-    });
-    d.querySelector("[data-lecture]").onclick = () => {
-      if (!d.video) return;
-      d.video.paused ? d.video.play() : d.video.pause();
-    };
-  };
-  poserBoutons();
+  d.querySelector("#bHd").onclick = () => demarrer();
 
   const retirerVideo = () => {
     if (d.chien) { clearInterval(d.chien); d.chien = null; }
@@ -442,67 +612,57 @@ function lire(item, num) {
     video = null; d.video = null;
   };
 
+  let secours = null;
+
   const poserIframe = (message) => {
     if (iframe) return;
     arreterCompteur();
     retirerVideo();
-    if (charge.parentNode) charge.remove();
     iframe = document.createElement("iframe");
     iframe.src = url;
     iframe.allowFullscreen = true;
     iframe.setAttribute("allow", "autoplay; encrypted-media; fullscreen");
     iframe.setAttribute("referrerpolicy", "origin");
-    zone.appendChild(iframe);
+    zone.insertBefore(iframe, ui);
+    attente.style.display = "none";
     if (message) { avisTexte.textContent = message; avis.hidden = false; }
+    construireBoutons();
   };
 
   const poserAvis = (message) => {
     arreterCompteur();
     retirerVideo();
-    if (charge.parentNode) charge.remove();
+    attente.style.display = "none";
     avisTexte.textContent = message;
     avis.hidden = false;
+    construireBoutons();
   };
 
-  let phase = "Connexion au lecteur";
-  const demarrerCompteur = () => {
-    arreterCompteur();
-    secondes = 0;
-    compteur = setInterval(() => {
-      secondes++;
-      if (secondes >= LIMITE_ATTENTE) {
-        arreterCompteur();
-        (item.type === "natif" ? poserAvis : poserIframe)("La vidéo n'a pas démarré en " + LIMITE_ATTENTE + " s sur cette télé.");
-        return;
-      }
-      if (etape.isConnected && charge.isConnected) {
-        etape.textContent = phase + "… " + secondes + " s";
-      }
-    }, 1000);
-    if (etape.isConnected && charge.isConnected) etape.textContent = phase + "… 0 s";
-  };
-
-  d.querySelector("#bHd").onclick = () => { demarrer(); };
+  secours = (motif) => (item.type === "natif" ? poserAvis(motif) : poserIframe(motif));
 
   const demarrer = async () => {
     retirerVideo();
     if (iframe) { iframe.remove(); iframe = null; }
     avis.hidden = true;
-    if (!charge.parentNode) zone.appendChild(charge);
-    phase = "Connexion au lecteur";
+    attente.style.display = "flex";
+    phase = "Connexion";
     demarrerCompteur();
+    entrerPleinEcran();
 
     const flux = item.type === "natif" ? url : await fluxDirect(url);
-    if (!flux) { poserIframe("Le flux direct est injoignable depuis cette télé. Mode de secours activé."); return; }
+    if (!flux) { poserIframe("Le flux direct est injoignable depuis cette télé."); return; }
     if (!d.isConnected) return;
 
     phase = "Préparation de la vidéo";
     if (etape.isConnected) etape.textContent = phase + "…";
+
     video = document.createElement("video");
     video.setAttribute("playsinline", "");
     video.preload = "auto";
-    zone.insertBefore(video, charge);
+    video.autoplay = true;
+    zone.insertBefore(video, ui);
     d.video = video;
+
     let dernierTemps = -1, figeeDepuis = 0;
     const surveiller = () => {
       if (d.chien) { clearInterval(d.chien); d.chien = null; }
@@ -514,45 +674,107 @@ function lire(item, num) {
         figeeDepuis += 2;
         if (figeeDepuis >= 12) {
           clearInterval(d.chien); d.chien = null;
-          if (charge.parentNode) charge.remove();
-          poserIframe("La vidéo s'est figée sur cette télé. Mode de secours activé.");
+          secours("La vidéo s'est figée sur cette télé.");
         }
       }, 2000);
     };
     d.surveiller = surveiller;
 
+    video.addEventListener("timeupdate", dessinerTemps);
+    video.addEventListener("loadedmetadata", dessinerTemps);
     video.addEventListener("playing", () => {
       arreterCompteur();
-      if (charge.parentNode) charge.remove();
+      attente.style.display = "none";
       surveiller();
+      majBoutons();
+      reveiller();
     }, { once: true });
-
-    const secours = (motif) => (item.type === "natif" ? poserAvis(motif) : poserIframe(motif));
+    video.addEventListener("pause", () => { majBoutons(); reveiller(); });
 
     if (item.type === "natif") {
+      let essais = 0;
+      const relancer = () => {
+        if (!video || !video.isConnected) return;
+        try { video.load(); video.play().catch(() => {}); } catch (e) {}
+      };
       video.src = flux;
-      video.addEventListener("error", () => poserAvis("Cette télé n'arrive pas à lire ce format vidéo."), { once: true });
+      video.addEventListener("error", () => {
+        if (essais < 1) { essais++; setTimeout(relancer, 1200); return; }
+        poserAvis("Cette télé n'arrive pas à lire ce format vidéo.");
+      });
       video.play().catch(() => {});
     } else if (window.Hls && Hls.isSupported()) {
       hls = new Hls({ maxBufferLength: 30, backBufferLength: 30, startLevel: -1, capLevelToPlayerSize: true });
-      hls.on(Hls.Events.ERROR, (evt, data) => { if (data && data.fatal) secours("Le flux HD a été refusé par cette télé. Mode de secours activé."); });
-      hls.on(Hls.Events.MANIFEST_PARSED, () => { video.play().catch(() => {}); });
+      hls.on(Hls.Events.ERROR, (evt, data) => {
+        if (data && data.fatal) secours("Le flux HD a été refusé par cette télé.");
+      });
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        construireBoutons();
+        appliquerQualite();
+        video.play().catch(() => {});
+      });
       hls.loadSource(flux);
       hls.attachMedia(video);
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = flux;
-      video.addEventListener("error", () => secours("Le flux HD n'est pas lisible ici. Mode de secours activé."), { once: true });
+      video.addEventListener("error", () => secours("Le flux HD n'est pas lisible ici."), { once: true });
       video.play().catch(() => {});
     } else {
-      secours("Le lecteur vidéo intégré n'est pas disponible sur cette télé. Mode de secours activé.");
+      secours("Le lecteur vidéo intégré n'est pas disponible sur cette télé.");
     }
+    construireBoutons();
   };
 
-  if (estYoutube(url)) { poserIframe(null); montrerBarre(); return; }
+  /* barre de progression : clic et fleches */
+  barreVideo.addEventListener("click", (ev) => {
+    if (!video || !video.duration) return;
+    const r = barreVideo.getBoundingClientRect();
+    const pct = Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width));
+    video.currentTime = pct * video.duration;
+    dessinerTemps();
+    reveiller();
+  });
+
+  /* ---------- clavier et telecommande ---------- */
+  d.gererTouche = (e) => {
+    const K = e.key;
+    const cache = ui.classList.contains("cache-ui");
+    if (cache) {
+      reveiller();
+      if (K === "Enter" || K === " ") { e.preventDefault(); basculerLecture(); }
+      else if (K === "Escape" || K === "Backspace") { e.preventDefault(); fermer(); }
+      return;
+    }
+    if (K === "ArrowDown") { rangee = Math.min(2, rangee + 1); }
+    else if (K === "ArrowUp") { rangee = Math.max(0, rangee - 1); }
+    else if (K === "ArrowRight") {
+      if (rangee === 1) sauter(10);
+      else if (rangee === 2) colonne = Math.min(boutons.length - 1, colonne + 1);
+    }
+    else if (K === "ArrowLeft") {
+      if (rangee === 1) sauter(-10);
+      else if (rangee === 2) colonne = Math.max(0, colonne - 1);
+    }
+    else if (K === "Enter" || K === " ") {
+      if (rangee === 2 && boutons[colonne]) boutons[colonne].click();
+      else if (rangee === 1) basculerLecture();
+      else fermer();
+    }
+    else if (K === "Escape" || K === "Backspace") { fermer(); return; }
+    else if (K === "f" || K === "F") { basculerPleinEcran(); }
+    else return;
+    e.preventDefault();
+    peindreFocus();
+    reveiller();
+  };
+
+  d.addEventListener("mousemove", reveiller);
+  construireBoutons();
+  peindreFocus();
+  reveiller();
   demarrer();
 }
 
-/* ---------- télécommande et clavier ---------- */
 let elemFocus = null;
 
 function focusables() {
@@ -601,14 +823,7 @@ document.addEventListener("keydown", (e) => {
   const lecteur = document.querySelector(".lecteur");
   if (lecteur) {
     e.preventDefault();
-    const v = lecteur.video;
-    lecteur.montrerBarre && lecteur.montrerBarre();
-    if (e.key === "Escape" || e.key === "Backspace") { lecteur.fermer ? lecteur.fermer() : lecteur.remove(); return; }
-    if (e.key === "ArrowLeft" && v) v.currentTime = Math.max(0, v.currentTime - 10);
-    if (e.key === "ArrowRight" && v) v.currentTime = v.currentTime + 10;
-    if (e.key === "ArrowUp" && v) v.volume = Math.min(1, v.volume + 0.1);
-    if (e.key === "ArrowDown" && v) v.volume = Math.max(0, v.volume - 0.1);
-    if (e.key === "Enter" || e.key === " ") { if (v) v.paused ? v.play() : v.pause(); }
+    if (lecteur.gererTouche) lecteur.gererTouche(e);
     return;
   }
 
