@@ -872,7 +872,7 @@ async function lire(item, num) {
     construireBoutons();
   };
 
-  const sansIframe = item.type === "natif" || /uqload/i.test(String(urlDirecte || ""));
+  const sansIframe = true; // jamais d interface tierce (marque et pubs de l hebergeur)
   secours = (motif) => (sansIframe ? poserAvis(motif) : poserIframe(motif));
 
   const demarrer = async () => {
