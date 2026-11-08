@@ -509,6 +509,19 @@ function deballer(bloc) {
 
 const CACHE_FLUX = new Map();
 
+async function fluxUtilisable(u) {
+  try {
+    const ctrl = new AbortController();
+    const garde = setTimeout(() => ctrl.abort(), 12000);
+    const r = await fetch(u, { cache: "no-store", signal: ctrl.signal });
+    clearTimeout(garde);
+    if (!r.ok) return false;
+    if (/taunt/i.test(r.url || "")) return false;
+    const texte = await r.text();
+    return !/taunt/i.test(texte);
+  } catch (e) { return false; }
+}
+
 async function fluxUqload(embed) {
   if (CACHE_FLUX.has(embed)) return CACHE_FLUX.get(embed);
   const relais = [
@@ -534,7 +547,10 @@ async function fluxUqload(embed) {
       const clair = deballer(bloc[0]);
       if (!clair) continue;
       const m = clair.match(/https?:\/\/[^"'\\\s]+\.m3u8[^"'\\\s]*/);
-      if (m) { const flux = m[0].replace(/\\\//g, "/"); CACHE_FLUX.set(embed, flux); return flux; }
+      if (m) {
+        const flux = m[0].replace(/\\\//g, "/");
+        if (await fluxUtilisable(flux)) { CACHE_FLUX.set(embed, flux); return flux; }
+      }
     } catch (e) {
       clearTimeout(garde);
     }
@@ -856,7 +872,8 @@ async function lire(item, num) {
     construireBoutons();
   };
 
-  secours = (motif) => (item.type === "natif" ? poserAvis(motif) : poserIframe(motif));
+  const sansIframe = item.type === "natif" || /uqload/i.test(String(urlDirecte || ""));
+  secours = (motif) => (sansIframe ? poserAvis(motif) : poserIframe(motif));
 
   const demarrer = async () => {
     retirerVideo();
