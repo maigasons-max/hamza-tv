@@ -1,0 +1,25 @@
+{
+ "id": "fairy-tail",
+ "t": "Fairy Tail",
+ "s": "Saison 1 · Version française",
+ "n": 15,
+ "affiche": "assets/affiche-fairy-tail.jpg",
+ "episodes": {
+  "1": "https://ansembed.net/embed-t0ly8w61i29r.html",
+  "2": "https://ansembed.net/embed-5nbqik43i9tc.html",
+  "3": "https://ansembed.net/embed-70qu81habc2k.html",
+  "4": "https://ansembed.net/embed-6crrygwwndk5.html",
+  "5": "https://ansembed.net/embed-44yhjsunr2g1.html",
+  "6": "https://ansembed.net/embed-s6hwamff7pt2.html",
+  "7": "https://ansembed.net/embed-zawruz0ckh01.html",
+  "8": "https://ansembed.net/embed-2hnws0x8ik7q.html",
+  "9": "https://ansembed.net/embed-8oexgphl2pkl.html",
+  "10": "https://ansembed.net/embed-xxi1zqb8h1rl.html",
+  "11": "https://ansembed.net/embed-rv54ez1nsgos.html",
+  "12": "https://ansembed.net/embed-ylh0e24s7ipf.html",
+  "13": "https://ansembed.net/embed-t94a6wzzwhtz.html",
+  "14": "https://ansembed.net/embed-tc7diui796dm.html",
+  "15": "https://ansembed.net/embed-5phb50uyh0a8.html"
+ },
+ "lecteur": "ansembed"
+}
