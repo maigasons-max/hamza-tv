@@ -95,90 +95,213 @@ function ressemble(cible, mot) {
   return false;
 }
 
-/* ---------- accueil ---------- */
-function accueil() {
-  app().innerHTML = `
-    <div class="accueil">
-      <div class="titre-app">
-        <img src="assets/icon-192.png" alt="Hamza TV">
-        <div><b>Hamza TV</b><span>Version française · v7.1</span></div>
-      </div>
-      <div class="recherche">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg>
-        <input id="q" type="search" inputmode="search" autocomplete="off" spellcheck="false"
-               placeholder="Rechercher un film, une série…" aria-label="Rechercher">
-      </div>
-      <div class="compte" id="compte"></div>
-      <div class="series" id="grille"></div>
-    </div>`;
+/* ---------- memoire locale (ma liste, reprise) ---------- */
+const CLE_FAV = "hamza-favoris", CLE_REPRISE = "hamza-reprise";
+function lireStock(cle, defaut) {
+  try { const v = JSON.parse(localStorage.getItem(cle)); return v === null ? defaut : v; }
+  catch (e) { return defaut; }
+}
+function ecrireStock(cle, valeur) { try { localStorage.setItem(cle, JSON.stringify(valeur)); } catch (e) {} }
+function estFavori(id) { return lireStock(CLE_FAV, []).includes(id); }
+function basculerFavori(id) {
+  const l = lireStock(CLE_FAV, []);
+  const i = l.indexOf(id);
+  if (i < 0) l.push(id); else l.splice(i, 1);
+  ecrireStock(CLE_FAV, l);
+  return i < 0;
+}
+function noterReprise(item, num) {
+  const r = lireStock(CLE_REPRISE, {});
+  r[item.id] = { ep: String(num), date: Date.now() };
+  ecrireStock(CLE_REPRISE, r);
+}
+function reprises() { return lireStock(CLE_REPRISE, {}); }
 
-  const champ = document.querySelector("#q");
-  champ.value = filtre;
-  champ.addEventListener("input", () => { filtre = champ.value; grille(); });
-  champ.addEventListener("keydown", (e) => { if (e.key === "Enter") champ.blur(); });
-
-  grille();
-  brancherFocus();
+function toast(texte) {
+  let t = document.querySelector(".toast");
+  if (!t) { t = document.createElement("div"); t.className = "toast"; document.body.appendChild(t); }
+  t.textContent = texte;
+  t.classList.add("vu");
+  clearTimeout(toast.minuteur);
+  toast.minuteur = setTimeout(() => t.classList.remove("vu"), 1700);
 }
 
+/* ---------- accueil ---------- */
+let vue = "accueil";
 let filtre = "";
 
-function grille() {
-  const box = document.querySelector("#grille");
-  if (!box) return;
+const LOGO = `<svg viewBox="0 0 512 512" aria-hidden="true">
+  <defs>
+    <radialGradient id="lbg" cx=".3" cy=".2" r="1"><stop offset="0" stop-color="#241346"/><stop offset=".55" stop-color="#0d0a1c"/><stop offset="1" stop-color="#05050b"/></radialGradient>
+    <linearGradient id="lbar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff6b94"/><stop offset=".5" stop-color="#ff2e63"/><stop offset="1" stop-color="#7a2cff"/></linearGradient>
+    <linearGradient id="lpl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#ffd9a0"/></linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="url(#lbg)"/>
+  <rect x="132" y="120" width="56" height="272" rx="28" fill="url(#lbar)"/>
+  <rect x="324" y="120" width="56" height="272" rx="28" fill="url(#lbar)"/>
+  <path d="M214 190V322L318 256Z" fill="url(#lpl)" stroke="url(#lpl)" stroke-width="22" stroke-linejoin="round"/>
+</svg>`;
+
+function vedette() {
+  const m = CATALOGUE.series.find(s => s.id === "miraculous");
+  return m || CATALOGUE.series[0];
+}
+
+function carteSerie(s, options) {
+  const o = options || {};
+  const film = estFilm(s);
+  const n = nbEpisodes(s);
+  const r = reprises()[s.id];
+  const prog = r ? Math.min(100, Math.max(8, (Number(r.ep) / Math.max(1, n)) * 100)) : 0;
+  const info = o.reprise && r
+    ? "Reprendre · épisode " + ((s.numero || {})[r.ep] || r.ep)
+    : (film ? "Film" : s.s);
+  return `
+    <button class="carte-serie f" data-id="${s.id}" data-reprise="${o.reprise && r ? r.ep : ""}">
+      <div class="visuel">
+        <img src="${s.affiche}" alt="${s.t}" loading="lazy">
+        <div class="voile"></div>
+        <span class="vf">${s.badge ? s.badge.split(" ")[0] : "VF"}</span>
+        ${film ? "" : `<span class="nb">${n} ép.</span>`}
+        ${prog ? `<div class="progression"><i style="width:${prog}%"></i></div>` : ""}
+      </div>
+      <div class="infos"><b>${s.t}</b><small>${info}</small></div>
+    </button>`;
+}
+
+function bandeau(s) {
+  const film = estFilm(s);
+  const r = reprises()[s.id];
+  const texte = film
+    ? "Disponible maintenant en version française, sans publicité."
+    : nbEpisodes(s) + " épisodes en version française, prêts à être regardés sur ta télé.";
+  return `
+    <section class="hero">
+      <div class="fond-art" style="background-image:url('${s.affiche}')"></div>
+      <div class="degrade"></div>
+      <div class="contenu">
+        <div class="sur">À LA UNE</div>
+        <h1>${s.t}</h1>
+        <p>${texte}</p>
+        <div class="boutons" data-rangee>
+          <button class="bouton fort f" id="bLecture">${r ? "▶ Reprendre" : "▶ Regarder"}</button>
+          <button class="bouton f" id="bListe">${estFavori(s.id) ? "✓ Ma liste" : "+ Ma liste"}</button>
+        </div>
+      </div>
+    </section>`;
+}
+
+function contenuHTML() {
   const q = sansAccent(filtre);
-  const mots = q ? q.split(" ").filter(Boolean) : [];
-  const cibleDe = (s) => sansAccent(s.t + " " + (s.s || "") + " " + (s.alias || ""));
-  // d'abord la correspondance exacte, puis, si rien ne sort, on tolere une faute
-  let liste = CATALOGUE.series.filter(s => {
-    if (!mots.length) return true;
-    const cible = cibleDe(s);
-    return mots.every(m => cible.includes(m));
+  if (q) {
+    const mots = q.split(" ").filter(Boolean);
+    const cible = (s) => sansAccent(s.t + " " + (s.s || "") + " " + (s.alias || ""));
+    let liste = CATALOGUE.series.filter(s => mots.every(m => cible(s).includes(m)));
+    if (!liste.length) {
+      const utiles = mots.filter(m => m.length > 2);
+      const garde = utiles.length ? utiles : mots;
+      liste = CATALOGUE.series.filter(s => garde.every(m => ressemble(cible(s), m)));
+    }
+    return liste.length
+      ? `<div class="grille" data-rangee>${liste.map(s => carteSerie(s)).join("")}</div>`
+      : `<p class="vide">Rien trouvé pour « ${filtre.replace(/[<>&]/g, "")} ».<br><small>Dis-moi le titre et je l'ajoute.</small></p>`;
+  }
+
+  if (vue === "series") {
+    return `<div class="grille" data-rangee>${CATALOGUE.series.map(s => carteSerie(s)).join("")}</div>`;
+  }
+
+  if (vue === "liste") {
+    const favs = CATALOGUE.series.filter(s => estFavori(s.id));
+    return favs.length
+      ? `<div class="grille" data-rangee>${favs.map(s => carteSerie(s)).join("")}</div>`
+      : `<p class="vide">Ta liste est vide.<br><small>Sur une série, appuie sur « + Ma liste ».</small></p>`;
+  }
+
+  const v = vedette();
+  const enCours = CATALOGUE.series.filter(s => reprises()[s.id]);
+  const favs = CATALOGUE.series.filter(s => estFavori(s.id));
+  const rangees = [];
+  if (enCours.length) {
+    rangees.push(`<div class="rangee"><h3>Reprendre la lecture</h3>
+      <div class="rail" data-rangee>${enCours.map(s => carteSerie(s, { reprise: true })).join("")}</div></div>`);
+  }
+  rangees.push(`<div class="rangee"><h3>Toutes les séries</h3>
+    <div class="rail" data-rangee>${CATALOGUE.series.map(s => carteSerie(s)).join("")}</div></div>`);
+  if (favs.length) {
+    rangees.push(`<div class="rangee"><h3>Ma liste</h3>
+      <div class="rail" data-rangee>${favs.map(s => carteSerie(s)).join("")}</div></div>`);
+  }
+  return bandeau(v) + `<div class="rangees">${rangees.join("")}</div>`;
+}
+
+function brancherContenu() {
+  document.querySelectorAll(".carte-serie").forEach(el => {
+    el.onclick = () => {
+      const id = el.dataset.id;
+      const ep = el.dataset.reprise;
+      const item = CATALOGUE.series.find(s => s.id === id);
+      if (!item) return;
+      if (ep) { lire(item, ep); return; }
+      ouvrir(id);
+    };
   });
-  if (!liste.length && mots.length) {
-    // les petits mots ("du", "de", "le") ne doivent pas bloquer la recherche
-    const utiles = mots.filter(m => m.length > 2);
-    const garde = utiles.length ? utiles : mots;
-    liste = CATALOGUE.series.filter(s => garde.every(m => ressemble(cibleDe(s), m)));
-  }
+  const bl = document.querySelector("#bLecture");
+  if (bl) bl.onclick = () => {
+    const s = vedette();
+    const r = reprises()[s.id];
+    if (r) lire(s, r.ep); else ouvrir(s.id);
+  };
+  const bListe = document.querySelector("#bListe");
+  if (bListe) bListe.onclick = () => {
+    const s = vedette();
+    const ajoute = basculerFavori(s.id);
+    bListe.textContent = ajoute ? "✓ Ma liste" : "+ Ma liste";
+    toast(ajoute ? s.t + " ajouté à ta liste" : s.t + " retiré de ta liste");
+    if (vue === "liste") rafraichir();
+  };
+}
 
-  const compte = document.querySelector("#compte");
-  if (compte) {
-    compte.textContent = mots.length
-      ? (liste.length === 1 ? "1 résultat" : liste.length + " résultats")
-      : "";
-  }
+function contenu() { return document.querySelector("#contenu"); }
 
-  if (!liste.length) {
-    box.innerHTML = `<p class="vide">Rien trouvé pour « ${filtre.replace(/[<>&]/g, "")} ».<br><small>Dis-moi le titre et je l'ajoute.</small></p>`;
-    brancherFocus(true);
-    return;
-  }
+function rafraichir() {
+  const c = contenu();
+  if (!c) return;
+  c.innerHTML = contenuHTML();
+  brancherContenu();
+  brancherFocus(true);
+}
 
-  box.innerHTML = liste.map(s => {
-    const film = estFilm(s);
-    const n = nbEpisodes(s);
-    return `
-      <button class="carte-serie" data-id="${s.id}">
-        <div class="visuel">
-          <img src="${s.affiche}" alt="${s.t}" loading="lazy">
-          <div class="voile"></div>
-          <div class="lecture"></div>
-          ${film ? "" : `<span class="nb">${n} ép.</span>`}
-        </div>
-        <div class="infos">
-          <b>${s.t}</b>
-          <small>${film ? "Film" : s.s}</small>
-          <span class="vf">${s.badge || (film ? "VF · sans publicité" : "VF")}</span>
-        </div>
-      </button>`;
-  }).join("");
+function rendre(nouvelleVue) {
+  if (nouvelleVue) vue = nouvelleVue;
+  app().innerHTML = `
+    <div class="nav" data-rangee>
+      <div class="logo">${LOGO}HAMZA TV</div>
+      <div class="pilules">
+        <button class="pilule f ${vue === "accueil" ? "on" : ""}" data-vue="accueil">Accueil</button>
+        <button class="pilule f ${vue === "series" ? "on" : ""}" data-vue="series">Séries</button>
+        <button class="pilule f ${vue === "liste" ? "on" : ""}" data-vue="liste">Ma liste</button>
+      </div>
+      <div class="zone-recherche">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg>
+        <input id="q" class="f" type="search" inputmode="search" autocomplete="off" spellcheck="false"
+               placeholder="Rechercher…" aria-label="Rechercher une série" value="${filtre.replace(/"/g, "&quot;")}">
+      </div>
+    </div>
+    <div id="contenu">${contenuHTML()}</div>`;
 
-  box.querySelectorAll("[data-id]").forEach(el => {
-    el.onclick = () => ouvrir(el.dataset.id);
+  document.querySelectorAll("[data-vue]").forEach(el => {
+    el.onclick = () => { filtre = ""; rendre(el.dataset.vue); };
   });
+  const champ = document.querySelector("#q");
+  champ.addEventListener("input", () => { filtre = champ.value; rafraichir(); champ.focus(); });
+  champ.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); champ.blur(); } });
+
+  brancherContenu();
   brancherFocus();
 }
+
+function accueil() { filtre = ""; rendre("accueil"); }
 
 function ouvrir(id) {
   const item = CATALOGUE.series.find(s => s.id === id);
@@ -197,12 +320,15 @@ let itemCourant = null;
 function listeEpisodes(item) {
   itemCourant = item;
   const nums = Object.keys(item.episodes).map(Number).sort((a, b) => a - b);
+  const r = reprises()[item.id];
   app().innerHTML = `
-    <div class="entete">
-      <button id="retour" aria-label="Retour">←</button>
-      <div><b>${item.t}</b><small>${item.s} · ${nums.length} épisodes</small></div>
+    <div class="entete" data-rangee>
+      <button id="retour" class="retour f" aria-label="Retour">←</button>
+      <img src="${item.affiche}" alt="">
+      <div class="titre"><b>${item.t}</b><small>${item.s} · ${nums.length} épisodes${r ? " · repris à l'épisode " + ((item.numero || {})[r.ep] || r.ep) : ""}</small></div>
+      <button id="favori" class="retour f" aria-label="Ma liste">${estFavori(item.id) ? "✓" : "+"}</button>
     </div>
-    <div class="episodes">
+    <div class="episodes" data-rangee>
       ${nums.map(n => {
         const num = (item.numero || {})[n], sai = (item.saisonDe || {})[n];
         const grand = num || n, petit = sai ? "SAISON " + sai : "ÉPISODE";
@@ -210,6 +336,11 @@ function listeEpisodes(item) {
       }).join("")}
     </div>`;
   document.querySelector("#retour").onclick = accueil;
+  document.querySelector("#favori").onclick = (ev) => {
+    const ajoute = basculerFavori(item.id);
+    ev.currentTarget.textContent = ajoute ? "✓" : "+";
+    toast(ajoute ? item.t + " ajouté à ta liste" : item.t + " retiré de ta liste");
+  };
   document.querySelectorAll("[data-ep]").forEach(el => el.onclick = () => lire(itemCourant, el.dataset.ep));
   brancherFocus();
 }
@@ -238,6 +369,7 @@ function estYoutube(url) { return /youtu\.?be/.test(url); }
 function lire(item, num) {
   const url = lienEpisode(item, num);
   if (!url) return;
+  noterReprise(item, num);
   const numAffiche = (item.numero || {})[num];
   const sai = (item.saisonDe || {})[num];
   const titre = item.t + (estFilm(item) ? "" : (sai ? " · S" + sai + " E" + numAffiche : " · Épisode " + num));
@@ -421,16 +553,48 @@ function lire(item, num) {
 }
 
 /* ---------- télécommande et clavier ---------- */
-let pos = 0;
+let elemFocus = null;
+
 function focusables() {
-  return [...document.querySelectorAll("#q, .carte-serie, .ep, #retour")].filter(e => e.offsetParent);
+  return [...document.querySelectorAll(".f")].filter(e => e.offsetParent && !e.disabled);
 }
-function brancherFocus(garderIndex) {
-  const els = focusables(); if (!els.length) return;
-  if (!garderIndex) pos = 0;
-  pos = Math.min(pos, els.length - 1);
-  els.forEach(e => e.classList.remove("focus"));
-  els[pos].classList.add("focus");
+
+function mettreFocus(el) {
+  if (!el) return;
+  elemFocus = el;
+  document.querySelectorAll(".focus").forEach(e => e.classList.remove("focus"));
+  el.classList.add("focus");
+  try { el.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" }); } catch (e) {}
+}
+
+function brancherFocus(garder) {
+  const els = focusables();
+  if (!els.length) { elemFocus = null; return; }
+  if (garder && elemFocus && els.includes(elemFocus)) return mettreFocus(elemFocus);
+  mettreFocus(els.find(e => e.classList.contains("carte-serie")) || els[0]);
+}
+
+/* le plus proche voisin dans la direction demandee : marche aussi bien
+   pour les rangees horizontales que pour la grille des episodes */
+function voisin(el, dx, dy) {
+  const r0 = el.getBoundingClientRect();
+  const cx = r0.left + r0.width / 2, cy = r0.top + r0.height / 2;
+  let best = null, score = Infinity;
+  for (const autre of focusables()) {
+    if (autre === el) continue;
+    const r = autre.getBoundingClientRect();
+    const ax = r.left + r.width / 2, ay = r.top + r.height / 2;
+    const vx = ax - cx, vy = ay - cy;
+    if (dx && (dx > 0 ? vx < 12 : vx > -12)) continue;
+    if (dx && Math.abs(vy) > r0.height * 1.7) continue;
+    if (dy && (dy > 0 ? vy < 12 : vy > -12)) continue;
+    if (dy && Math.abs(vx) > r0.width * 2.2) continue;
+    const principal = dx ? Math.abs(vx) : Math.abs(vy);
+    const secondaire = dx ? Math.abs(vy) : Math.abs(vx);
+    const sc = principal + secondaire * 2.6;
+    if (sc < score) { score = sc; best = autre; }
+  }
+  return best;
 }
 
 document.addEventListener("keydown", (e) => {
@@ -447,36 +611,43 @@ document.addEventListener("keydown", (e) => {
     if (e.key === "Enter" || e.key === " ") { if (v) v.paused ? v.play() : v.pause(); }
     return;
   }
+
   const els = focusables(); if (!els.length) return;
   const champ = document.querySelector("#q");
   const surChamp = document.activeElement === champ;
 
-  const bouger = (d) => {
-    els[pos] && els[pos].classList.remove("focus");
-    pos = (pos + d + els.length) % els.length;
-    els[pos].classList.add("focus");
-    els[pos].scrollIntoView({ block: "center", behavior: "smooth" });
-    if (els[pos].id !== "q" && surChamp) champ.blur();
-  };
-
-  // une lettre tapée pendant qu'une carte est sélectionnée part dans la recherche
+  // une lettre tapee pendant qu'une vignette est selectionnee part dans la recherche
   if (!surChamp && e.key.length === 1 && !e.ctrlKey && !e.metaKey && champ) {
     champ.focus();
     return;
   }
-  if (e.key === "ArrowDown" || e.key === "ArrowRight") { e.preventDefault(); bouger(1); }
-  if (e.key === "ArrowUp" || e.key === "ArrowLeft") { e.preventDefault(); bouger(-1); }
+
+  const cour = surChamp ? champ : (elemFocus && els.includes(elemFocus) ? elemFocus : els[0]);
+  if (!elemFocus) mettreFocus(cour);
+
+  if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+    e.preventDefault();
+    const suivant = voisin(cour, e.key === "ArrowRight" ? 1 : 0, e.key === "ArrowDown" ? 1 : 0);
+    if (suivant) { if (surChamp && suivant.id !== "q") champ.blur(); mettreFocus(suivant); }
+  }
+  if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+    e.preventDefault();
+    const precedent = voisin(cour, e.key === "ArrowLeft" ? -1 : 0, e.key === "ArrowUp" ? -1 : 0);
+    if (precedent) { if (surChamp && precedent.id !== "q") champ.blur(); mettreFocus(precedent); }
+  }
   if (e.key === "Enter") {
     if (surChamp) { e.preventDefault(); champ.blur(); return; }
-    e.preventDefault(); els[pos] && els[pos].click();
+    e.preventDefault();
+    if (cour) cour.click();
   }
   if (e.key === "Escape" || e.key === "Backspace") {
     if (surChamp) return;
-    if (document.querySelector(".episodes")) { e.preventDefault(); accueil(); }
+    e.preventDefault();
+    if (document.querySelector(".episodes")) accueil();
+    else if (filtre) { filtre = ""; rendre("accueil"); }
   }
 });
 
-/* ---------- démarrage ---------- */
 (async function () {
   CATALOGUE = normaliser(CATALOGUE);
   // on attend la version en ligne : le fichier pèse quelques Ko, c'est immédiat.
