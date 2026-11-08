@@ -508,22 +508,35 @@ function deballer(bloc) {
 }
 
 async function fluxUqload(embed) {
-  try {
+  const relais = [
+    "https://api.allorigins.win/get?url=",
+    "https://api.allorigins.win/raw?url="
+  ];
+  for (const base of relais) {
     const ctrl = new AbortController();
-    const garde = setTimeout(() => ctrl.abort(), 16000);
-    const r = await fetch("https://api.allorigins.win/get?url=" + encodeURIComponent(embed),
-                          { cache: "no-store", signal: ctrl.signal });
-    clearTimeout(garde);
-    if (!r.ok) return null;
-    const enveloppe = await r.json().catch(() => null);
-    const texte = (enveloppe && enveloppe.contents) || "";
-    const bloc = texte.match(/eval\(function\(p,a,c,k,e,[dr]\)[\s\S]*?\.split\('\|'\)\)/);
-    if (!bloc) return null;
-    const clair = deballer(bloc[0]);
-    if (!clair) return null;
-    const m = clair.match(/https?:\/\/[^"'\\\s]+\.m3u8[^"'\\\s]*/);
-    return m ? m[0].replace(/\\\//g, "/") : null;
-  } catch (e) { return null; }
+    const garde = setTimeout(() => ctrl.abort(), 20000);
+    try {
+      const r = await fetch(base + encodeURIComponent(embed), { cache: "no-store", signal: ctrl.signal });
+      clearTimeout(garde);
+      if (!r.ok) continue;
+      let texte = "";
+      if (/\/get\?/.test(base)) {
+        const env = await r.json().catch(() => null);
+        texte = (env && env.contents) || "";
+      } else {
+        texte = await r.text();
+      }
+      const bloc = texte.match(/eval\(function\(p,a,c,k,e,[dr]\)[\s\S]*?\.split\('\|'\)\)/);
+      if (!bloc) continue;
+      const clair = deballer(bloc[0]);
+      if (!clair) continue;
+      const m = clair.match(/https?:\/\/[^"'\\\s]+\.m3u8[^"'\\\s]*/);
+      if (m) return m[0].replace(/\\\//g, "/");
+    } catch (e) {
+      clearTimeout(garde);
+    }
+  }
+  return null;
 }
 
 function estYoutube(url) { return /youtu\.?be/.test(url); }
