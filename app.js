@@ -507,7 +507,10 @@ function deballer(bloc) {
   });
 }
 
+const CACHE_FLUX = new Map();
+
 async function fluxUqload(embed) {
+  if (CACHE_FLUX.has(embed)) return CACHE_FLUX.get(embed);
   const relais = [
     "https://api.allorigins.win/get?url=",
     "https://api.allorigins.win/raw?url="
@@ -531,7 +534,7 @@ async function fluxUqload(embed) {
       const clair = deballer(bloc[0]);
       if (!clair) continue;
       const m = clair.match(/https?:\/\/[^"'\\\s]+\.m3u8[^"'\\\s]*/);
-      if (m) return m[0].replace(/\\\//g, "/");
+      if (m) { const flux = m[0].replace(/\\\//g, "/"); CACHE_FLUX.set(embed, flux); return flux; }
     } catch (e) {
       clearTimeout(garde);
     }
@@ -650,12 +653,14 @@ async function lire(item, num) {
 
   let phase = "Connexion";
   const arreterCompteur = () => { clearInterval(compteur); compteur = null; };
+  let resolutionEnCours = false;
   const demarrerCompteur = () => {
     arreterCompteur();
     secondes = 0;
     etape.textContent = phase + "… 0 s";
     compteur = setInterval(() => {
       secondes++;
+      if (resolutionEnCours) { secondes = 0; return; }
       if (secondes >= LIMITE_ATTENTE) {
         arreterCompteur();
         if (!incident) incident = "aucune image en " + LIMITE_ATTENTE + " s";
@@ -873,7 +878,9 @@ async function lire(item, num) {
       }
       return null;
     };
+    resolutionEnCours = true;
     const flux = sources.length ? await sourceSuivante() : null;
+    resolutionEnCours = false;
     if (!flux) {
       incident = "flux introuvable";
       poserIframe("Le flux direct est injoignable depuis cette télé.");
