@@ -228,3 +228,9 @@ html,body{margin:0;height:100%;background:var(--fond);color:var(--texte);
 .ep small{font-size:clamp(6px,.6vw,10px);letter-spacing:.1em;color:var(--doux);font-weight:700}
 .ep.focus{background:#fff;color:#000;border-color:#fff;transform:scale(1.06);outline:none}
 .ep.focus small{color:#555}
+
+/* ligne de diagnostic sur la tele */
+.lecteur .diag{position:absolute;left:clamp(12px,4.7vw,90px);bottom:clamp(120px,18vh,220px);z-index:9;
+  margin:0;font-style:normal;font-family:ui-monospace,monospace;font-size:clamp(9px,.95vw,15px);
+  color:#ffd0dd;background:rgba(0,0,0,.72);padding:6px 10px;border-radius:8px;max-width:88vw;
+  line-height:1.5;letter-spacing:.01em}

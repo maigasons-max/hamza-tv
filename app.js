@@ -453,6 +453,29 @@ function listeEpisodes(item, saisonDemandee) {
    parce que certaines TV n'affichent jamais le flux HD. */
 const LIMITE_ATTENTE = 14; // secondes avant de passer en mode de secours
 
+/* Ce que cette télé sait faire : affiche a l'ecran quand ça bloque,
+   ça evite de deviner pourquoi un flux ne demarre pas. */
+function capacitesTele() {
+  const ua = navigator.userAgent || "";
+  const chrome = (ua.match(/(?:Chrome|CrOS)\/(\d+)/) || [])[1];
+  const android = (ua.match(/Android\s+([\d.]+)/) || [])[1];
+  const v = document.createElement("video");
+  const oui = (t) => (v.canPlayType(t) ? "oui" : "non");
+  return {
+    moteur: (chrome ? "Chrome " + chrome : "navigateur inconnu") + (android ? " · Android " + android : ""),
+    mse: window.MediaSource ? "oui" : "non",
+    hls: window.Hls ? "oui" : "non",
+    hlsNatif: oui("application/vnd.apple.mpegurl"),
+    h264: oui('video/mp4; codecs="avc1.42E01E"')
+  };
+}
+
+function ligneDiag(incident) {
+  const c = capacitesTele();
+  return [c.moteur, "MSE " + c.mse, "hls.js " + c.hls, "H.264 " + c.h264,
+          incident ? "blocage : " + incident : ""].filter(Boolean).join(" · ");
+}
+
 async function fluxDirect(embed) {
   try {
     const ctrl = new AbortController();
@@ -492,6 +515,7 @@ async function lire(item, num) {
   d.innerHTML = `
     <div class="zone">
       <div class="attente" id="attente"><div class="rond"></div><span id="etape">Connexion…</span></div>
+      <em id="diag" class="diag" hidden></em>
       <div class="flash" id="flash"></div>
       <div class="ui" id="ui">
         <div class="haut">
@@ -512,6 +536,8 @@ async function lire(item, num) {
   const zone = d.querySelector(".zone");
   const ui = d.querySelector("#ui");
   const attente = d.querySelector("#attente");
+  const diag = d.querySelector("#diag");
+  let incident = "";
   const etape = d.querySelector("#etape");
   const avis = d.querySelector(".avis");
   const avisTexte = d.querySelector("#avisTexte");
@@ -541,14 +567,29 @@ async function lire(item, num) {
     const f = document.exitFullscreen || document.webkitExitFullscreen;
     if (f) { try { const r = f.call(document); if (r && r.catch) r.catch(() => {}); } catch (e) {} }
   };
-  const basculerPleinEcran = () => { plein() ? sortirPleinEcran() : entrerPleinEcran(); };
+  const basculerPleinEcran = () => {
+    const plein = document.fullscreenElement || document.webkitFullscreenElement;
+    if (plein) {
+      (document.exitFullscreen || document.webkitExitFullscreen || function () {}).call(document);
+      quitterImmersif();
+    } else {
+      const racine = document.documentElement;
+      const demande = racine.requestFullscreen || racine.webkitRequestFullscreen;
+      if (demande) { try { demande.call(racine); } catch (e) {} }
+      devenirImmersif();
+    }
+  };
 
-  /* ---------- messages ---------- */
-  const eclat = (texte) => {
-    flashEl.textContent = texte;
-    flashEl.classList.add("vu");
-    clearTimeout(flashMinuteur);
-    flashMinuteur = setTimeout(() => flashEl.classList.remove("vu"), 750);
+  /* si la TV sort du plein ecran par son propre bouton, on remet le bandeau complet */
+  const suivrePleinEcran = () => {
+    const plein = document.fullscreenElement || document.webkitFullscreenElement;
+    if (plein) devenirImmersif(); else quitterImmersif();
+  };
+  document.addEventListener("fullscreenchange", suivrePleinEcran);
+  document.addEventListener("webkitfullscreenchange", suivrePleinEcran);
+  d.suivrePleinEcran = () => {
+    document.removeEventListener("fullscreenchange", suivrePleinEcran);
+    document.removeEventListener("webkitfullscreenchange", suivrePleinEcran);
   };
 
   let phase = "Connexion";
@@ -561,6 +602,7 @@ async function lire(item, num) {
       secondes++;
       if (secondes >= LIMITE_ATTENTE) {
         arreterCompteur();
+        if (!incident) incident = "aucune image en " + LIMITE_ATTENTE + " s";
         secours("La vidéo n'a pas démarré en " + LIMITE_ATTENTE + " s sur cette télé.");
         return;
       }
@@ -572,7 +614,25 @@ async function lire(item, num) {
   const reveiller = () => {
     ui.classList.remove("cache-ui");
     clearTimeout(minuteurUi);
-    minuteurUi = setTimeout(() => { if (video && !video.paused && avis.hidden) ui.classList.add("cache-ui"); }, 4500);
+    /* le bandeau s'efface tout seul, meme en pause : en plein ecran il ne reste que la video */
+    minuteurUi = setTimeout(() => { if (avis.hidden) ui.classList.add("cache-ui"); }, 4500);
+  };
+
+  /* plein ecran : aucune commande a l'ecran, juste la video.
+     une touche ou un clic fait revenir le bandeau quelques secondes. */
+  let immersif = false;
+  const devenirImmersif = () => {
+    immersif = true;
+    d.classList.add("immersif");
+    construireBoutons();
+    ui.classList.add("cache-ui");
+    clearTimeout(minuteurUi);
+  };
+  const quitterImmersif = () => {
+    immersif = false;
+    d.classList.remove("immersif");
+    construireBoutons();
+    reveiller();
   };
 
   const dessinerTemps = () => {
@@ -640,9 +700,14 @@ async function lire(item, num) {
     ajouter("moins", "−10 s");
     ajouter("lecture", "", true);
     ajouter("plus", "+10 s");
-    if (suivant) ajouter("suivant", "Épisode suivant ›");
-    if (hauteurs().length > 1) ajouter("qualite", "Qualité : auto");
-    ajouter("plein", "⛶ Plein écran");
+    if (immersif) {
+      /* en plein ecran : rien d'autre que la video et les commandes de base */
+      ajouter("plein", "⛶ Réduire");
+    } else {
+      if (suivant) ajouter("suivant", "Épisode suivant ›");
+      if (hauteurs().length > 1) ajouter("qualite", "Qualité : auto");
+      ajouter("plein", "⛶ Plein écran");
+    }
     majBoutons();
   };
 
@@ -718,6 +783,8 @@ async function lire(item, num) {
     zone.insertBefore(iframe, ui);
     attente.style.display = "none";
     if (message) { avisTexte.textContent = message; avis.hidden = false; }
+    diag.hidden = false;
+    diag.textContent = ligneDiag(incident);
     construireBoutons();
   };
 
@@ -727,6 +794,8 @@ async function lire(item, num) {
     attente.style.display = "none";
     avisTexte.textContent = message;
     avis.hidden = false;
+    diag.hidden = false;
+    diag.textContent = ligneDiag(incident);
     construireBoutons();
   };
 
@@ -741,8 +810,16 @@ async function lire(item, num) {
     demarrerCompteur();
     entrerPleinEcran();
 
+    diag.hidden = false;
+    diag.textContent = ligneDiag("");
+
     const flux = item.type === "natif" ? url : await fluxDirect(url);
-    if (!flux) { poserIframe("Le flux direct est injoignable depuis cette télé."); return; }
+    if (!flux) {
+      incident = "flux introuvable";
+      diag.textContent = ligneDiag(incident);
+      poserIframe("Le flux direct est injoignable depuis cette télé.");
+      return;
+    }
     if (!d.isConnected) return;
 
     phase = "Préparation de la vidéo";
@@ -777,11 +854,14 @@ async function lire(item, num) {
     video.addEventListener("playing", () => {
       arreterCompteur();
       attente.style.display = "none";
+      diag.hidden = true;
       surveiller();
       majBoutons();
       reveiller();
     }, { once: true });
     video.addEventListener("pause", () => { majBoutons(); reveiller(); });
+
+    diag.textContent = ligneDiag("");
 
     if (item.type === "natif") {
       let essais = 0;
@@ -791,6 +871,8 @@ async function lire(item, num) {
       };
       video.src = flux;
       video.addEventListener("error", () => {
+        incident = "lecture native refusée (code " + ((video.error && video.error.code) || "?") + ")";
+        diag.textContent = ligneDiag(incident);
         if (essais < 1) { essais++; setTimeout(relancer, 1200); return; }
         poserAvis("Cette télé n'arrive pas à lire ce format vidéo.");
       });
@@ -798,7 +880,10 @@ async function lire(item, num) {
     } else if (window.Hls && Hls.isSupported()) {
       hls = new Hls({ maxBufferLength: 30, backBufferLength: 30, startLevel: -1, capLevelToPlayerSize: true });
       hls.on(Hls.Events.ERROR, (evt, data) => {
-        if (data && data.fatal) secours("Le flux HD a été refusé par cette télé.");
+        if (!data || !data.fatal) return;
+        incident = "hls.js " + (data.details || "erreur");
+        diag.textContent = ligneDiag(incident);
+        secours("Le flux HD a été refusé par cette télé.");
       });
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         construireBoutons();
@@ -861,6 +946,10 @@ async function lire(item, num) {
   };
 
   d.addEventListener("mousemove", reveiller);
+  d.addEventListener("click", (ev) => {
+    if (ev.target.closest(".ui")) return;
+    if (ui.classList.contains("cache-ui")) reveiller();
+  });
   construireBoutons();
   peindreFocus();
   reveiller();
