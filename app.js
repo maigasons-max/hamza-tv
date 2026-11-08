@@ -489,6 +489,43 @@ async function fluxDirect(embed) {
   } catch (e) { return null; }
 }
 
+/* uqload : la page est obfusquee et refuse les appels directs (pas d'en-tete CORS).
+   On la lit via un relais public, on deballe le lecteur, on en sort le flux HLS. */
+function deballer(bloc) {
+  const m = bloc.match(/eval\(function\(p,a,c,k,e,[dr]\)\{[\s\S]*?\}\('([\s\S]*?)',(\d+),(\d+),'([\s\S]*?)'\.split\('\|'\)/);
+  if (!m) return null;
+  const paquet = m[1], base = parseInt(m[2], 10), mots = m[4].split('|');
+  const CHIFFRES = "0123456789abcdefghijklmnopqrstuvwxyz";
+  return paquet.replace(/\b[0-9a-z]+\b/g, (mot) => {
+    let n = 0;
+    for (const c of mot) {
+      const i = CHIFFRES.indexOf(c);
+      if (i < 0 || i >= base) return mot;
+      n = n * base + i;
+    }
+    return (n < mots.length && mots[n]) ? mots[n] : mot;
+  });
+}
+
+async function fluxUqload(embed) {
+  try {
+    const ctrl = new AbortController();
+    const garde = setTimeout(() => ctrl.abort(), 16000);
+    const r = await fetch("https://api.allorigins.win/get?url=" + encodeURIComponent(embed),
+                          { cache: "no-store", signal: ctrl.signal });
+    clearTimeout(garde);
+    if (!r.ok) return null;
+    const enveloppe = await r.json().catch(() => null);
+    const texte = (enveloppe && enveloppe.contents) || "";
+    const bloc = texte.match(/eval\(function\(p,a,c,k,e,[dr]\)[\s\S]*?\.split\('\|'\)\)/);
+    if (!bloc) return null;
+    const clair = deballer(bloc[0]);
+    if (!clair) return null;
+    const m = clair.match(/https?:\/\/[^"'\\\s]+\.m3u8[^"'\\\s]*/);
+    return m ? m[0].replace(/\\\//g, "/") : null;
+  } catch (e) { return null; }
+}
+
 function estYoutube(url) { return /youtu\.?be/.test(url); }
 
 /* Un episode peut pointer vers plusieurs sources : la premiere qui repond est jouee,
@@ -817,8 +854,8 @@ async function lire(item, num) {
     const sourceSuivante = async () => {
       for (let i = rangSource; i < sources.length; i++) {
         const u = sources[i];
-        const dejaUnFlux = /\.m3u8|\.mp4/i.test(u);
-        const f = dejaUnFlux ? u : await fluxDirect(u);
+        const f = /\.m3u8|\.mp4/i.test(u) ? u
+                : (/uqload/i.test(u) ? await fluxUqload(u) : await fluxDirect(u));
         if (f) { rangSource = i + 1; return f; }
       }
       return null;
