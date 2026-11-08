@@ -74,7 +74,7 @@ function accueil() {
   app().innerHTML = `
     <div class="accueil">
       <div class="titre-app">
-        <img src="assets/icon-192.png" alt="">
+        <img class="logo-entete" src="assets/icon-192.png" alt="Hamza TV">
         <div><b>Hamza TV</b><span>Version française</span></div>
       </div>
       <div class="series">${cartes}</div>

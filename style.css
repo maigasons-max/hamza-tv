@@ -13,7 +13,7 @@ html,body{margin:0;height:100%;background:var(--fond);color:var(--texte);
 /* ---- accueil : une seule carte ---- */
 .accueil{padding:22px 18px 40px}
 .titre-app{display:flex;align-items:center;gap:11px;margin-bottom:26px}
-.titre-app img{width:36px;height:36px;border-radius:11px}
+.titre-app img{width:52px;height:52px;border-radius:14px;box-shadow:0 6px 18px rgba(255,61,127,.25)}
 .titre-app b{font-size:16px;letter-spacing:.02em}
 .titre-app span{font-size:9.5px;letter-spacing:.2em;color:var(--or);display:block;text-transform:uppercase}
 
