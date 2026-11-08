@@ -390,7 +390,7 @@ function lire(item, num) {
     const secours = (motif) => poserIframe(motif);
 
     if (window.Hls && Hls.isSupported()) {
-      hls = new Hls({ maxBufferLength: 30, backBufferLength: 30, startLevel: 0, capLevelToPlayerSize: true });
+      hls = new Hls({ maxBufferLength: 30, backBufferLength: 30, startLevel: -1, capLevelToPlayerSize: true });
       hls.on(Hls.Events.ERROR, (evt, data) => { if (data && data.fatal) secours("Le flux HD a été refusé par cette télé. Mode de secours activé."); });
       hls.on(Hls.Events.MANIFEST_PARSED, () => { video.play().catch(() => {}); });
       hls.loadSource(flux);
