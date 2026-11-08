@@ -515,7 +515,6 @@ async function lire(item, num) {
   d.innerHTML = `
     <div class="zone">
       <div class="attente" id="attente"><div class="rond"></div><span id="etape">Connexion…</span></div>
-      <em id="diag" class="diag" hidden></em>
       <div class="flash" id="flash"></div>
       <div class="ui" id="ui">
         <div class="haut">
@@ -536,7 +535,6 @@ async function lire(item, num) {
   const zone = d.querySelector(".zone");
   const ui = d.querySelector("#ui");
   const attente = d.querySelector("#attente");
-  const diag = d.querySelector("#diag");
   let incident = "";
   const etape = d.querySelector("#etape");
   const avis = d.querySelector(".avis");
@@ -783,8 +781,6 @@ async function lire(item, num) {
     zone.insertBefore(iframe, ui);
     attente.style.display = "none";
     if (message) { avisTexte.textContent = message; avis.hidden = false; }
-    diag.hidden = false;
-    diag.textContent = ligneDiag(incident);
     construireBoutons();
   };
 
@@ -794,8 +790,6 @@ async function lire(item, num) {
     attente.style.display = "none";
     avisTexte.textContent = message;
     avis.hidden = false;
-    diag.hidden = false;
-    diag.textContent = ligneDiag(incident);
     construireBoutons();
   };
 
@@ -810,13 +804,9 @@ async function lire(item, num) {
     demarrerCompteur();
     entrerPleinEcran();
 
-    diag.hidden = false;
-    diag.textContent = ligneDiag("");
-
     const flux = item.type === "natif" ? url : await fluxDirect(url);
     if (!flux) {
       incident = "flux introuvable";
-      diag.textContent = ligneDiag(incident);
       poserIframe("Le flux direct est injoignable depuis cette télé.");
       return;
     }
@@ -851,17 +841,17 @@ async function lire(item, num) {
 
     video.addEventListener("timeupdate", dessinerTemps);
     video.addEventListener("loadedmetadata", dessinerTemps);
+    window.__lecture = { etat: "en cours", incident: "" };
     video.addEventListener("playing", () => {
+      window.__lecture = { etat: "ok", incident: "" };
       arreterCompteur();
       attente.style.display = "none";
-      diag.hidden = true;
       surveiller();
       majBoutons();
       reveiller();
     }, { once: true });
     video.addEventListener("pause", () => { majBoutons(); reveiller(); });
 
-    diag.textContent = ligneDiag("");
 
     if (item.type === "natif") {
       let essais = 0;
@@ -872,8 +862,8 @@ async function lire(item, num) {
       video.src = flux;
       video.addEventListener("error", () => {
         incident = "lecture native refusée (code " + ((video.error && video.error.code) || "?") + ")";
-        diag.textContent = ligneDiag(incident);
-        if (essais < 1) { essais++; setTimeout(relancer, 1200); return; }
+        window.__lecture = { etat: "echec", incident: incident };
+          if (essais < 1) { essais++; setTimeout(relancer, 1200); return; }
         poserAvis("Cette télé n'arrive pas à lire ce format vidéo.");
       });
       video.play().catch(() => {});
@@ -882,8 +872,8 @@ async function lire(item, num) {
       hls.on(Hls.Events.ERROR, (evt, data) => {
         if (!data || !data.fatal) return;
         incident = "hls.js " + (data.details || "erreur");
-        diag.textContent = ligneDiag(incident);
-        secours("Le flux HD a été refusé par cette télé.");
+        window.__lecture = { etat: "echec", incident: incident };
+          secours("Le flux HD a été refusé par cette télé.");
       });
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         construireBoutons();
