@@ -142,6 +142,10 @@ const LOGO = `<svg viewBox="0 0 512 512" aria-hidden="true">
   <path d="M214 190V322L318 256Z" fill="url(#lpl)" stroke="url(#lpl)" stroke-width="22" stroke-linejoin="round"/>
 </svg>`;
 
+function categorieDe(item) {
+  return item.categorie || (estFilm(item) ? "film" : "anime");
+}
+
 function vedette() {
   const m = CATALOGUE.series.find(s => s.id === "miraculous");
   return m || CATALOGUE.series[0];
@@ -208,21 +212,40 @@ function contenuHTML() {
   }
 
   const parTendance = CATALOGUE.series.slice().sort((x, y) => (x.tendance || 9) - (y.tendance || 9));
+  const deCategorie = (cat) => CATALOGUE.series.filter(x => categorieDe(x) === cat);
+  const vide = (quoi, aide) => `<p class="vide">${quoi} pour le moment.<br><small>${aide}</small></p>`;
 
   if (vue === "tendances") {
     return `<div class="rangees"><div class="rangee"><h3>Les tendances du moment</h3>
       <div class="rail" data-rangee>${parTendance.map(s => carteSerie(s)).join("")}</div></div></div>`;
   }
 
+  if (vue === "animes") {
+    const liste = deCategorie("anime");
+    return liste.length
+      ? `<div class="grille" data-rangee>${liste.map(s => carteSerie(s)).join("")}</div>`
+      : vide("Aucun animé", "Dis-moi le titre et je l'ajoute.");
+  }
+
   if (vue === "series") {
-    return `<div class="grille" data-rangee>${CATALOGUE.series.map(s => carteSerie(s)).join("")}</div>`;
+    const liste = deCategorie("serie");
+    return liste.length
+      ? `<div class="grille" data-rangee>${liste.map(s => carteSerie(s)).join("")}</div>`
+      : vide("Aucune série", "Les séries arriveront ici, séparées des animés.");
+  }
+
+  if (vue === "films") {
+    const liste = deCategorie("film");
+    return liste.length
+      ? `<div class="grille" data-rangee>${liste.map(s => carteSerie(s)).join("")}</div>`
+      : vide("Aucun film", "Les films arriveront ici, séparés des séries.");
   }
 
   if (vue === "liste") {
     const favs = CATALOGUE.series.filter(s => estFavori(s.id));
     return favs.length
       ? `<div class="grille" data-rangee>${favs.map(s => carteSerie(s)).join("")}</div>`
-      : `<p class="vide">Ta liste est vide.<br><small>Sur une série, appuie sur « + Ma liste ».</small></p>`;
+      : `<p class="vide">Ta liste est vide.<br><small>Sur une fiche, appuie sur « + Ma liste ».</small></p>`;
   }
 
   const v = vedette();
@@ -235,8 +258,21 @@ function contenuHTML() {
     rangees.push(`<div class="rangee"><h3>Reprendre la lecture</h3>
       <div class="rail" data-rangee>${enCours.map(s => carteSerie(s, { reprise: true })).join("")}</div></div>`);
   }
-  rangees.push(`<div class="rangee"><h3>Toutes les séries</h3>
-    <div class="rail" data-rangee>${CATALOGUE.series.map(s => carteSerie(s)).join("")}</div></div>`);
+  const anime = CATALOGUE.series.filter(x => categorieDe(x) === "anime");
+  const serie = CATALOGUE.series.filter(x => categorieDe(x) === "serie");
+  const film = CATALOGUE.series.filter(x => categorieDe(x) === "film");
+  if (anime.length) {
+    rangees.push(`<div class="rangee"><h3>Animés</h3>
+      <div class="rail" data-rangee>${anime.map(s => carteSerie(s)).join("")}</div></div>`);
+  }
+  if (serie.length) {
+    rangees.push(`<div class="rangee"><h3>Séries</h3>
+      <div class="rail" data-rangee>${serie.map(s => carteSerie(s)).join("")}</div></div>`);
+  }
+  if (film.length) {
+    rangees.push(`<div class="rangee"><h3>Films</h3>
+      <div class="rail" data-rangee>${film.map(s => carteSerie(s)).join("")}</div></div>`);
+  }
   if (favs.length) {
     rangees.push(`<div class="rangee"><h3>Ma liste</h3>
       <div class="rail" data-rangee>${favs.map(s => carteSerie(s)).join("")}</div></div>`);
@@ -287,10 +323,9 @@ function rendre(nouvelleVue) {
     <div class="nav" data-rangee>
       <div class="logo">${LOGO}HAMZA TV</div>
       <div class="pilules">
-        <button class="pilule f ${vue === "tendances" ? "on" : ""}" data-vue="tendances">Tendances</button>
-        <button class="pilule f ${vue === "accueil" ? "on" : ""}" data-vue="accueil">Accueil</button>
-        <button class="pilule f ${vue === "series" ? "on" : ""}" data-vue="series">Séries</button>
-        <button class="pilule f ${vue === "liste" ? "on" : ""}" data-vue="liste">Ma liste</button>
+        ${[["tendances", "Tendances"], ["accueil", "Accueil"], ["animes", "Animés"], ["series", "Séries"], ["films", "Films"], ["liste", "Ma liste"]]
+          .map(([cle, nom]) => `<button class="pilule f ${vue === cle ? "on" : ""}" data-vue="${cle}">${nom}</button>`)
+          .join("")}
       </div>
       <div class="zone-recherche">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg>
@@ -331,20 +366,45 @@ function listeEpisodes(item) {
   itemCourant = item;
   const nums = Object.keys(item.episodes).map(Number).sort((a, b) => a - b);
   const r = reprises()[item.id];
+
+  // on regroupe par saison : un bloc par saison, episodes numerotes dans leur saison
+  const parSaison = new Map();
+  nums.forEach(n => {
+    const saison = (item.saisonDe || {})[n] || 1;
+    if (!parSaison.has(saison)) parSaison.set(saison, []);
+    parSaison.get(saison).push(n);
+  });
+  const saisons = [...parSaison.keys()].sort((a, b) => a - b);
+  const nomSaison = (s) => (item.saisonNoms || {})[s] || ("Saison " + s);
+
+  const reperes = nums.map(n => {
+    const saison = (item.saisonDe || {})[n] || 1;
+    return { n, saison, rang: parSaison.get(saison).indexOf(n) + 1, num: (item.numero || {})[n] };
+  });
+
   app().innerHTML = `
     <div class="entete" data-rangee>
       <button id="retour" class="retour f" aria-label="Retour">←</button>
       <img src="${item.affiche}" alt="">
-      <div class="titre"><b>${item.t}</b><small>${item.s} · ${nums.length} épisodes${r ? " · repris à l'épisode " + ((item.numero || {})[r.ep] || r.ep) : ""}</small></div>
+      <div class="titre"><b>${item.t}</b><small>${item.s}${r ? " · repris " + nomSaison((item.saisonDe || {})[r.ep] || 1) + ", épisode " + ((item.numero || {})[r.ep] || r.ep) : ""}</small></div>
       <button id="favori" class="retour f" aria-label="Ma liste">${estFavori(item.id) ? "✓" : "+"}</button>
     </div>
-    <div class="episodes" data-rangee>
-      ${nums.map(n => {
-        const num = (item.numero || {})[n], sai = (item.saisonDe || {})[n];
-        const grand = num || n, petit = sai ? "SAISON " + sai : "ÉPISODE";
-        return `<div class="ep" data-ep="${n}">${grand}<small>${petit}</small></div>`;
+    <div class="saisons">
+      ${saisons.map(saison => {
+        const liste = parSaison.get(saison);
+        return `
+        <section class="bloc-saison">
+          <h2>${nomSaison(saison)}<small>${liste.length} épisode${liste.length > 1 ? "s" : ""}</small></h2>
+          <div class="episodes" data-rangee>
+            ${liste.map((n, i) => {
+              const num = (item.numero || {})[n] || (i + 1);
+              return `<div class="ep" data-ep="${n}">${num}<small>ÉPISODE</small></div>`;
+            }).join("")}
+          </div>
+        </section>`;
       }).join("")}
     </div>`;
+
   document.querySelector("#retour").onclick = accueil;
   document.querySelector("#favori").onclick = (ev) => {
     const ajoute = basculerFavori(item.id);

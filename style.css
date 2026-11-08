@@ -202,3 +202,14 @@ html,body{margin:0;height:100%;background:var(--fond);color:var(--texte);
 @media (min-width:1600px){
   .carte-serie{width:clamp(180px,13vw,260px)}
 }
+
+/* ---------- blocs de saisons ---------- */
+.saisons{padding:clamp(10px,2vh,26px) 0 clamp(30px,5vh,70px)}
+.bloc-saison{margin-bottom:clamp(16px,3vh,40px)}
+.bloc-saison h2{display:flex;align-items:baseline;gap:clamp(8px,1vw,16px);
+  margin:0 clamp(16px,4.6vw,90px) clamp(6px,1vh,12px);
+  font-size:clamp(14px,1.8vw,32px);letter-spacing:-.01em;font-weight:800}
+.bloc-saison h2:before{content:"";width:clamp(4px,0.35vw,6px);height:1em;border-radius:3px;
+  background:linear-gradient(180deg,var(--a),var(--b));align-self:center}
+.bloc-saison h2 small{color:var(--doux);font-size:clamp(9px,1vw,16px);font-weight:600;letter-spacing:.06em}
+.bloc-saison .episodes{padding-top:0}
