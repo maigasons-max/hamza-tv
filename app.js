@@ -203,7 +203,11 @@ function listeEpisodes(item) {
       <div><b>${item.t}</b><small>${item.s} · ${nums.length} épisodes</small></div>
     </div>
     <div class="episodes">
-      ${nums.map(n => `<div class="ep" data-ep="${n}">${n}<small>ÉPISODE</small></div>`).join("")}
+      ${nums.map(n => {
+        const num = (item.numero || {})[n], sai = (item.saisonDe || {})[n];
+        const grand = num || n, petit = sai ? "SAISON " + sai : "ÉPISODE";
+        return `<div class="ep" data-ep="${n}">${grand}<small>${petit}</small></div>`;
+      }).join("")}
     </div>`;
   document.querySelector("#retour").onclick = accueil;
   document.querySelectorAll("[data-ep]").forEach(el => el.onclick = () => lire(itemCourant, el.dataset.ep));
@@ -234,7 +238,9 @@ function estYoutube(url) { return /youtu\.?be/.test(url); }
 function lire(item, num) {
   const url = lienEpisode(item, num);
   if (!url) return;
-  const titre = item.t + (estFilm(item) ? "" : " · Épisode " + num);
+  const numAffiche = (item.numero || {})[num];
+  const sai = (item.saisonDe || {})[num];
+  const titre = item.t + (estFilm(item) ? "" : (sai ? " · S" + sai + " E" + numAffiche : " · Épisode " + num));
 
   const d = document.createElement("div");
   d.className = "lecteur";
