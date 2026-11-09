@@ -522,12 +522,17 @@ function ficheARelier(item) {
         <div class="fiche-infos">
           <h1>${item.t}</h1>
           <p>${item.s}</p>
-          ${(item.plateformes || []).length ? `<div class="fiche-actions" data-rangee style="margin-bottom:14px">${item.plateformes.map(p => `<a class="bouton fort f" href="${p.url}" target="_blank" rel="noopener">▶ Regarder sur ${p.nom}</a>`).join("")}</div>` : ""}
-          <p class="reprise">Colle le lien de ton fichier (Mega, Drive, 1fichier, mp4…) : je le range ici et il se lit sans pub.</p>
-          <div class="fiche-actions" data-rangee>
-            <input id="lien-fiche" inputmode="url" placeholder="https://..." style="flex:1;min-width:240px;padding:14px 18px;border-radius:12px;border:1px solid #33334a;background:#14141f;color:#fff;font-size:17px">
-            <button id="bLien" class="bouton fort f">Ajouter et lire</button>
-          </div>
+          ${(item.plateformes || []).length
+            ? `<div class="fiche-actions" data-rangee style="margin-bottom:20px">${item.plateformes.map(p => `<a class="bouton fort f" style="font-size:21px;padding:20px 34px" href="${p.url}" target="_blank" rel="noopener">▶ Regarder</a>`).join("")}</div>`
+            : ""}
+          <details ${(item.plateformes || []).length ? "" : "open"}>
+            <summary class="f" style="cursor:pointer;padding:10px 0;opacity:.75">J'ai mon propre fichier</summary>
+            <p class="reprise">Colle le lien (Mega, Drive, 1fichier, mp4…) : je le range et il se lit sans pub.</p>
+            <div class="fiche-actions" data-rangee>
+              <input id="lien-fiche" inputmode="url" placeholder="https://..." style="flex:1;min-width:240px;padding:14px 18px;border-radius:12px;border:1px solid #33334a;background:#14141f;color:#fff;font-size:17px">
+              <button id="bLien" class="bouton fort f">Ajouter et lire</button>
+            </div>
+          </details>
         </div>
       </div>
     </div>`;
