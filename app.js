@@ -282,6 +282,12 @@ function contenuHTML() {
         <button id="import-ajouter" class="pilule on f">Importer</button>
       </div>
       <p class="vide" style="margin-top:6px"><small>Colle autant de liens que tu veux, ils deviennent les épisodes 1, 2, 3…</small></p>
+      <h3 class="compte">Ajouter plusieurs films d'un coup</h3>
+      <div class="ajout-lien colonne">
+        <textarea id="lot-liens" class="f" rows="6" placeholder="Un film par ligne :  Titre | https://lien-du-fichier"></textarea>
+        <button id="lot-ajouter" class="pilule on f">Tout ajouter</button>
+      </div>
+      <p class="vide" style="margin-top:6px"><small>Tu peux coller 50 lignes d'un coup, l'app les range en films.</small></p>
       ${miens.length ? `<div class="grille" data-rangee>${miens.map(s => carteSerie(s)).join("")}</div>` : ""}`;
   }
 
@@ -379,6 +385,33 @@ const ajouterLocal = (url, titre) => {
   ecrireLocaux(l);
   try { if (window.CATALOGUE && CATALOGUE.series) CATALOGUE.series.unshift(item); } catch (e) {}
 };
+function posterPerso(titre) {
+  const mots = String(titre || "Film").trim().split(/\s+/).slice(0, 2).map(m => m[0]).join("").toUpperCase();
+  const teintes = [["#1b2a4a", "#35507f"], ["#3a1b2a", "#7f3550"], ["#1b3a2a", "#357f50"], ["#2a1b3a", "#50357f"]];
+  const [a, b] = teintes[(String(titre).length + 2) % teintes.length];
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs><rect width="300" height="450" fill="url(#g)"/><text x="150" y="240" font-family="Inter, Arial, sans-serif" font-size="96" font-weight="700" fill="#ffffff" text-anchor="middle" opacity="0.92">${mots}</text></svg>`;
+  return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+}
+
+function importerLot(texte) {
+  const lignes = String(texte || "").split(/\n+/).map(l => l.trim()).filter(Boolean);
+  const l = lireLocaux();
+  let n = 0;
+  lignes.forEach(ligne => {
+    const m = ligne.match(/^(.+?)\s*\|\s*(https?:\/\/[^\s|]+)/i) || ligne.match(/^(https?:\/\/[^\s|]+)/i);
+    if (!m) return;
+    const url = /^https?:/i.test(m[1]) ? m[1] : m[2];
+    const titre = /^https?:/i.test(m[1]) ? url.split("/").pop().split("?")[0] : m[1].trim();
+    l.unshift({ id: "local-" + Date.now() + "-" + n, t: titre || "Sans titre", s: "Ma vidéo · ajoutée par moi",
+      affiche: posterPerso(titre), badge: "PERSO", episodes: { "1": url }, saisonDe: { "1": 1 }, numero: { "1": 1 },
+      categorie: "film", tendance: -1 });
+    n++;
+  });
+  ecrireLocaux(l);
+  try { l.forEach(x => { if (!CATALOGUE.series.find(y => y.id === x.id)) CATALOGUE.series.unshift(x); }); } catch (e) {}
+  return n;
+}
+
 function importerSerie(titre, cat, texte) {
   const liens = String(texte || "").split(/\s+/).map(x => x.trim()).filter(x => /^https?:\/\//i.test(x));
   if (!liens.length) return 0;
@@ -403,6 +436,16 @@ function brancherLiens() {
       const x = (document.querySelector("#import-liens") || {}).value || "";
       const n = importerSerie(t, c, x);
       if (!n) { bi.textContent = "Aucun lien valide"; return; }
+      rendre("liens");
+    };
+  }
+  const lot = document.querySelector("#lot-ajouter");
+  if (lot) {
+    lot.onclick = () => {
+      const x = (document.querySelector("#lot-liens") || {}).value || "";
+      const n = importerLot(x);
+      if (!n) { lot.textContent = "Aucune ligne valide"; return; }
+      toast(n + " film" + (n > 1 ? "s" : "") + " ajouté" + (n > 1 ? "s" : ""));
       rendre("liens");
     };
   }
