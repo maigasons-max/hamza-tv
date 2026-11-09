@@ -467,8 +467,42 @@ function nomDeSaison(item, saison) {
   return (item.saisonNoms || {})[saison] || ("Saison " + saison);
 }
 
+function ficheARelier(item) {
+  itemCourant = item;
+  const deja = lireLocaux().find(x => (x.t || "").toLowerCase() === (item.t || "").toLowerCase());
+  if (deja) { lire(deja, "1"); return; }
+  app().innerHTML = `
+    <button id="retour" class="retour-coin f" aria-label="Retour">‹</button>
+    <div class="fiche">
+      <div class="fiche-tete">
+        <img class="affiche-fiche" src="${item.affiche}" alt="">
+        <div class="fiche-infos">
+          <h1>${item.t}</h1>
+          <p>${item.s}</p>
+          <p class="reprise">Colle le lien de ton fichier (Mega, Drive, 1fichier, mp4…) : je le range ici et il se lit sans pub.</p>
+          <div class="fiche-actions" data-rangee>
+            <input id="lien-fiche" inputmode="url" placeholder="https://..." style="flex:1;min-width:240px;padding:14px 18px;border-radius:12px;border:1px solid #33334a;background:#14141f;color:#fff;font-size:17px">
+            <button id="bLien" class="bouton fort f">Ajouter et lire</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  document.querySelector("#retour").onclick = accueil;
+  document.querySelector("#bLien").onclick = () => {
+    const u = (document.querySelector("#lien-fiche").value || "").trim();
+    if (!/^https?:\/\//i.test(u)) { toast("Le lien doit commencer par http"); return; }
+    const item2 = { id: "local-" + Date.now(), t: item.t, s: item.s, affiche: item.affiche, badge: "PERSO",
+      episodes: { "1": u }, saisonDe: { "1": 1 }, numero: { "1": 1 }, categorie: item.categorie || "film", tendance: -1 };
+    const l = lireLocaux(); l.unshift(item2); ecrireLocaux(l);
+    try { CATALOGUE.series.unshift(item2); } catch (e) {}
+    lire(item2, "1");
+  };
+  brancherFocus();
+}
+
 function listeEpisodes(item, saisonDemandee) {
   itemCourant = item;
+  if (item.aRelier) return ficheARelier(item);
   const nums = Object.keys(item.episodes).map(Number).sort((a, b) => a - b);
 
   const parSaison = new Map();
