@@ -523,8 +523,9 @@ function ficheARelier(item) {
           <h1>${item.t}</h1>
           <p>${item.s}</p>
           ${(item.plateformes || []).length
-            ? `<div class="fiche-actions" data-rangee style="margin-bottom:20px">${item.plateformes.map(p => `<a class="bouton fort f" style="font-size:21px;padding:20px 34px" href="${p.url}" target="_blank" rel="noopener">▶ Regarder</a>`).join("")}</div>`
+            ? `<div class="fiche-actions" data-rangee style="margin-bottom:20px">${item.plateformes.map(p => `<a class="bouton fort f" style="font-size:20px;padding:18px 30px" href="${p.url}" target="_blank" rel="noopener">Ouvrir dans ${p.nom}</a>`).join("")}</div>`
             : ""}
+          ${(item.plateformes || []).length ? `<p class="reprise">Ce film n'est pas hébergé dans l'app : il s'ouvre chez ${item.plateformes[0].nom}.</p>` : ""}
           <details ${(item.plateformes || []).length ? "" : "open"}>
             <summary class="f" style="cursor:pointer;padding:10px 0;opacity:.75">J'ai mon propre fichier</summary>
             <p class="reprise">Colle le lien (Mega, Drive, 1fichier, mp4…) : je le range et il se lit sans pub.</p>
