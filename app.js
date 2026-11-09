@@ -385,6 +385,7 @@ function rendre(nouvelleVue) {
   champ.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); champ.blur(); } });
 
   brancherContenu();
+  brancherLiens();
   brancherFocus();
 }
 
