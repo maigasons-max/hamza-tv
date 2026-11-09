@@ -223,21 +223,21 @@ function contenuHTML() {
   if (vue === "animes") {
     const liste = deCategorie("anime");
     return liste.length
-      ? `<div class="grille" data-rangee>${liste.map(s => carteSerie(s)).join("")}</div>`
+      ? `<h3 class="compte">${liste.length} animés</h3><div class="grille" data-rangee>${liste.map(s => carteSerie(s)).join("")}</div>`
       : vide("Aucun animé", "Dis-moi le titre et je l'ajoute.");
   }
 
   if (vue === "series") {
     const liste = deCategorie("serie");
     return liste.length
-      ? `<div class="grille" data-rangee>${liste.map(s => carteSerie(s)).join("")}</div>`
+      ? `<h3 class="compte">${liste.length} séries</h3><div class="grille" data-rangee>${liste.map(s => carteSerie(s)).join("")}</div>`
       : vide("Aucune série", "Les séries arriveront ici, séparées des animés.");
   }
 
   if (vue === "films") {
     const liste = deCategorie("film");
     return liste.length
-      ? `<div class="grille" data-rangee>${liste.map(s => carteSerie(s)).join("")}</div>`
+      ? `<h3 class="compte">${liste.length} films</h3><div class="grille" data-rangee>${liste.map(s => carteSerie(s)).join("")}</div>`
       : vide("Aucun film", "Les films arriveront ici, séparés des séries.");
   }
 

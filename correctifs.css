@@ -14,3 +14,6 @@
 
 /* 3. Demarrage de l'application : le rond qui tourne disparait aussi */
 #chargeur .rond{display:none !important}
+
+/* compteur en tete de categorie */
+h3.compte { margin: 18px 4px 10px; font-size: 15px; font-weight: 600; letter-spacing: .02em; opacity: .85; }
