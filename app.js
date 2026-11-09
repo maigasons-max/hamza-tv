@@ -946,7 +946,7 @@ async function lire(item, num) {
     video.addEventListener("pause", () => { majBoutons(); reveiller(); });
 
 
-    if (item.type === "natif") {
+    if (item.type === "natif" || /\.(mp4|m4v|webm|ogv)(\?|$)/i.test(String(flux || ""))) {
       let essais = 0;
       const relancer = () => {
         if (!video || !video.isConnected) return;
