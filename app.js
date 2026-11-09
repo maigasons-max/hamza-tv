@@ -479,6 +479,7 @@ function ficheARelier(item) {
         <div class="fiche-infos">
           <h1>${item.t}</h1>
           <p>${item.s}</p>
+          ${(item.plateformes || []).length ? `<div class="fiche-actions" data-rangee style="margin-bottom:14px">${item.plateformes.map(p => `<a class="bouton fort f" href="${p.url}" target="_blank" rel="noopener">▶ Regarder sur ${p.nom}</a>`).join("")}</div>` : ""}
           <p class="reprise">Colle le lien de ton fichier (Mega, Drive, 1fichier, mp4…) : je le range ici et il se lit sans pub.</p>
           <div class="fiche-actions" data-rangee>
             <input id="lien-fiche" inputmode="url" placeholder="https://..." style="flex:1;min-width:240px;padding:14px 18px;border-radius:12px;border:1px solid #33334a;background:#14141f;color:#fff;font-size:17px">
