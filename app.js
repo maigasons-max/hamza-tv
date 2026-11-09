@@ -82,6 +82,12 @@ function lienEpisode(item, num) {
   if (item.type === "youtube") {
     return "https://www.youtube.com/embed/" + v + "?playsinline=1&rel=0&modestbranding=1";
   }
+  /* secours : une deuxieme adresse pour le meme episode, essayee si la premiere ne lit pas */
+  const sec = (item.secours || {})[num];
+  if (sec) {
+    const liste = Array.isArray(sec) ? sec : [sec];
+    return [v].concat(liste.filter(Boolean));
+  }
   return v;
 }
 
