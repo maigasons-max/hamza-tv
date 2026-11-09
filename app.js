@@ -250,6 +250,18 @@ function contenuHTML() {
         <button id="lien-ajouter" class="pilule on f">Ajouter</button>
       </div>
       <p class="vide" style="margin-top:6px"><small>Vidéos que tu ajoutes toi-même, gardées sur cette télé.</small></p>
+      <h3 class="compte">Importer une série entière</h3>
+      <div class="ajout-lien colonne">
+        <input id="import-titre" class="f" type="text" placeholder="Titre de la série" />
+        <select id="import-cat" class="f">
+          <option value="anime">Animé</option>
+          <option value="serie">Série</option>
+          <option value="film">Film</option>
+        </select>
+        <textarea id="import-liens" class="f" rows="4" placeholder="Un lien par ligne, dans l'ordre des épisodes"></textarea>
+        <button id="import-ajouter" class="pilule on f">Importer</button>
+      </div>
+      <p class="vide" style="margin-top:6px"><small>Colle autant de liens que tu veux, ils deviennent les épisodes 1, 2, 3…</small></p>
       ${miens.length ? `<div class="grille" data-rangee>${miens.map(s => carteSerie(s)).join("")}</div>` : ""}`;
   }
 
@@ -347,9 +359,33 @@ const ajouterLocal = (url, titre) => {
   ecrireLocaux(l);
   try { if (window.CATALOGUE && CATALOGUE.series) CATALOGUE.series.unshift(item); } catch (e) {}
 };
+function importerSerie(titre, cat, texte) {
+  const liens = String(texte || "").split(/\s+/).map(x => x.trim()).filter(x => /^https?:\/\//i.test(x));
+  if (!liens.length) return 0;
+  const nom = (titre || "").trim() || "Sans titre";
+  const episodes = {}; const sde = {}; const num = {};
+  liens.forEach((u, i) => { episodes[String(i + 1)] = u; sde[String(i + 1)] = 1; num[String(i + 1)] = i + 1; });
+  const item = { id: "local-" + Date.now(), t: nom, s: liens.length + " épisodes · import perso", affiche: "",
+    badge: "PERSO", episodes, saisonDe: sde, numero: num, categorie: cat || "serie", tendance: -1 };
+  const l = lireLocaux(); l.unshift(item); ecrireLocaux(l);
+  try { if (window.CATALOGUE && CATALOGUE.series) CATALOGUE.series.unshift(item); } catch (e) {}
+  return liens.length;
+}
+
 function brancherLiens() {
   const b = document.querySelector("#lien-ajouter");
   if (!b) return;
+  const bi = document.querySelector("#import-ajouter");
+  if (bi) {
+    bi.onclick = () => {
+      const t = (document.querySelector("#import-titre") || {}).value || "";
+      const c = (document.querySelector("#import-cat") || {}).value || "serie";
+      const x = (document.querySelector("#import-liens") || {}).value || "";
+      const n = importerSerie(t, c, x);
+      if (!n) { bi.textContent = "Aucun lien valide"; return; }
+      rendre("liens");
+    };
+  }
   b.onclick = () => {
     const u = (document.querySelector("#lien-url") || {}).value || "";
     const t = (document.querySelector("#lien-titre") || {}).value || "";
