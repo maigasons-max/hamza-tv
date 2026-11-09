@@ -241,6 +241,18 @@ function contenuHTML() {
       : vide("Aucun film", "Les films arriveront ici, séparés des séries.");
   }
 
+  if (vue === "liens") {
+    const miens = CATALOGUE.series.filter(x => String(x.id).startsWith("local-"));
+    return `<h3 class="compte">${miens.length} vidéo${miens.length > 1 ? "s" : ""} perso</h3>
+      <div class="ajout-lien">
+        <input id="lien-url" class="f" type="url" inputmode="url" placeholder="Lien direct .mp4 ou .m3u8" />
+        <input id="lien-titre" class="f" type="text" placeholder="Titre (facultatif)" />
+        <button id="lien-ajouter" class="pilule on f">Ajouter</button>
+      </div>
+      <p class="vide" style="margin-top:6px"><small>Vidéos que tu ajoutes toi-même, gardées sur cette télé.</small></p>
+      ${miens.length ? `<div class="grille" data-rangee>${miens.map(s => carteSerie(s)).join("")}</div>` : ""}`;
+  }
+
   if (vue === "liste") {
     const favs = CATALOGUE.series.filter(s => estFavori(s.id));
     return favs.length
@@ -314,8 +326,36 @@ function rafraichir() {
   if (!c) return;
   c.innerHTML = contenuHTML();
   brancherContenu();
+  brancherLiens();
   brancherFocus(true);
 }
+
+
+/* ---- videos perso : liens que le proprietaire colle lui-meme ---- */
+const CLE_LOCAUX = "hv_videos_perso";
+const lireLocaux = () => {
+  try { return JSON.parse(localStorage.getItem(CLE_LOCAUX) || "[]"); } catch (e) { return []; }
+};
+const ecrireLocaux = (l) => { try { localStorage.setItem(CLE_LOCAUX, JSON.stringify(l)); } catch (e) {} };
+const ajouterLocal = (url, titre) => {
+  const l = lireLocaux();
+  const nom = (titre || "").trim() || url.split("/").pop().split("?")[0].replace(/\.[a-z0-9]+$/i, "");
+  l.unshift({ id: "local-" + Date.now(), t: nom, s: "Ma vidéo · ajoutée par moi", affiche: "",
+    badge: "PERSO", episodes: { "1": url }, saisonDe: { "1": 1 }, numero: { "1": 1 },
+    categorie: "film", tendance: -1 });
+  ecrireLocaux(l);
+};
+const brancherLiens = () => {
+  const b = document.querySelector("#lien-ajouter");
+  if (!b) return;
+  b.onclick = () => {
+    const u = (document.querySelector("#lien-url") || {}).value || "";
+    const t = (document.querySelector("#lien-titre") || {}).value || "";
+    if (!/^https?:\/\//i.test(u.trim())) { b.textContent = "Lien invalide"; return; }
+    ajouterLocal(u.trim(), t);
+    rendre("liens");
+  };
+};
 
 function rendre(nouvelleVue) {
   if (nouvelleVue) vue = nouvelleVue;
@@ -323,7 +363,7 @@ function rendre(nouvelleVue) {
     <div class="nav" data-rangee>
       <div class="logo">${LOGO}HAMZA TV</div>
       <div class="pilules">
-        ${[["tendances", "Tendances"], ["accueil", "Accueil"], ["animes", "Animés"], ["series", "Séries"], ["films", "Films"], ["liste", "Ma liste"]]
+        ${[["tendances", "Tendances"], ["accueil", "Accueil"], ["animes", "Animés"], ["series", "Séries"], ["films", "Films"], ["liens", "Mes vidéos"], ["liste", "Ma liste"]]
           .map(([cle, nom]) => `<button class="pilule f ${vue === cle ? "on" : ""}" data-vue="${cle}">${nom}</button>`)
           .join("")}
       </div>
@@ -1138,6 +1178,7 @@ document.addEventListener("keydown", (e) => {
 
 (async function () {
   CATALOGUE = normaliser(CATALOGUE);
+  try { CATALOGUE.series = lireLocaux().concat(CATALOGUE.series); } catch (e) {}
   // on attend la version en ligne : le fichier pèse quelques Ko, c'est immédiat.
   // si le réseau ne répond pas, le catalogue embarqué prend le relais.
   await Promise.race([actualiser(), new Promise(r => setTimeout(r, 4000))]);

@@ -17,3 +17,9 @@
 
 /* compteur en tete de categorie */
 h3.compte { margin: 18px 4px 10px; font-size: 15px; font-weight: 600; letter-spacing: .02em; opacity: .85; }
+
+/* ajout d'une video perso */
+.ajout-lien { display: flex; flex-wrap: wrap; gap: 10px; margin: 8px 4px 4px; }
+.ajout-lien input { flex: 1 1 260px; min-width: 200px; padding: 12px 14px; border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.06); color: #fff; font-size: 15px; }
+.ajout-lien input::placeholder { color: rgba(255,255,255,.4); }
