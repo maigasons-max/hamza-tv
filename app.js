@@ -242,7 +242,7 @@ function contenuHTML() {
   }
 
   if (vue === "liens") {
-    const miens = CATALOGUE.series.filter(x => String(x.id).startsWith("local-"));
+    const miens = lireLocaux();
     return `<h3 class="compte">${miens.length} vidéo${miens.length > 1 ? "s" : ""} perso</h3>
       <div class="ajout-lien">
         <input id="lien-url" class="f" type="url" inputmode="url" placeholder="Lien direct .mp4 ou .m3u8" />
@@ -340,10 +340,12 @@ const ecrireLocaux = (l) => { try { localStorage.setItem(CLE_LOCAUX, JSON.string
 const ajouterLocal = (url, titre) => {
   const l = lireLocaux();
   const nom = (titre || "").trim() || url.split("/").pop().split("?")[0].replace(/\.[a-z0-9]+$/i, "");
-  l.unshift({ id: "local-" + Date.now(), t: nom, s: "Ma vidéo · ajoutée par moi", affiche: "",
+  const item = { id: "local-" + Date.now(), t: nom, s: "Ma vidéo · ajoutée par moi", affiche: "",
     badge: "PERSO", episodes: { "1": url }, saisonDe: { "1": 1 }, numero: { "1": 1 },
-    categorie: "film", tendance: -1 });
+    categorie: "film", tendance: -1 };
+  l.unshift(item);
   ecrireLocaux(l);
+  try { if (window.CATALOGUE && CATALOGUE.series) CATALOGUE.series.unshift(item); } catch (e) {}
 };
 const brancherLiens = () => {
   const b = document.querySelector("#lien-ajouter");
