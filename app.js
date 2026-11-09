@@ -1,6 +1,26 @@
 /* Hamza TV — catalogue de séries et de films, avec recherche. */
 const app = () => document.querySelector("#app");
 let CATALOGUE = window.CATALOGUE || null;
+const CLE_CACHE = "hamza_catalogue_v";
+function lireCache() {
+  try {
+    const brut = localStorage.getItem(CLE_CACHE);
+    if (!brut) return null;
+    const d = JSON.parse(brut);
+    return normaliser(d && d.catalogue) ? d : null;
+  } catch (e) { return null; }
+}
+function ecrireCache(cat) {
+  try {
+    // on ne garde que l'essentiel : le poids est ce qui ralentit le demarrage
+    const leger = { v: cat.v, series: cat.series.map(x => ({
+      id: x.id, t: x.t, s: x.s, affiche: x.affiche, badge: x.badge,
+      categorie: x.categorie, episodes: x.episodes, saisonDe: x.saisonDe,
+      numero: x.numero, tendance: x.tendance, annee: x.annee
+    })) };
+    localStorage.setItem(CLE_CACHE, JSON.stringify({ quand: Date.now(), catalogue: leger }));
+  } catch (e) {}
+}
 
 /* le catalogue peut aussi venir de GitHub, si une version plus récente existe */
 const SOURCES = [
@@ -163,7 +183,7 @@ function carteSerie(s, options) {
   return `
     <button class="carte-serie f" data-id="${s.id}" data-reprise="${o.reprise && r ? r.ep : ""}">
       <div class="visuel">
-        <img src="${s.affiche}" alt="${s.t}" loading="lazy">
+        <img src="${s.affiche}" alt="${s.t}" loading="lazy" decoding="async">
         <div class="voile"></div>
         <span class="vf">${s.badge ? s.badge.split(" ")[0] : "VF"}</span>
         ${film ? "" : `<span class="nb">${n} ép.</span>`}
@@ -1216,20 +1236,30 @@ document.addEventListener("keydown", (e) => {
 });
 
 (async function () {
-  CATALOGUE = normaliser(CATALOGUE);
-  try { CATALOGUE.series = lireLocaux().concat(CATALOGUE.series); } catch (e) {}
-  // on attend la version en ligne : le fichier pèse quelques Ko, c'est immédiat.
-  // si le réseau ne répond pas, le catalogue embarqué prend le relais.
-  await Promise.race([actualiser(), new Promise(r => setTimeout(r, 4000))]);
+  // 1. affichage immediat avec la derniere version connue (aucune attente reseau)
+  const cache = lireCache();
+  if (cache && cache.catalogue.series.length) {
+    CATALOGUE = normaliser(cache.catalogue);
+    try { CATALOGUE.series = lireLocaux().concat(CATALOGUE.series); } catch (e) {}
+    document.querySelector("#chargeur").classList.add("cache");
+    accueil();
+  }
+  // 2. mise a jour en arriere-plan, puis rafraichissement si plus recente
+  const avant = CATALOGUE ? Number(CATALOGUE.v || 0) : -1;
+  await Promise.race([actualiser(), new Promise(r => setTimeout(r, 6000))]);
   document.querySelector("#chargeur").classList.add("cache");
   if (!CATALOGUE || !CATALOGUE.series.length) {
     app().innerHTML = "<p style='padding:30px;color:#9a9ab0'>Catalogue indisponible.</p>";
     return;
   }
-  if (document.querySelector(".episodes") && itemCourant) {
-    const frais = CATALOGUE.series.find(s => s.id === itemCourant.id);
-    listeEpisodes(frais || itemCourant);
-  } else {
-    accueil();
+  try { CATALOGUE.series = lireLocaux().concat(CATALOGUE.series.filter(x => !String(x.id).startsWith("local-"))); } catch (e) {}
+  ecrireCache(CATALOGUE);
+  if (Number(CATALOGUE.v || 0) > avant) {
+    if (document.querySelector(".episodes") && itemCourant) {
+      const frais = CATALOGUE.series.find(s => s.id === itemCourant.id);
+      listeEpisodes(frais || itemCourant);
+    } else {
+      accueil();
+    }
   }
 })();
