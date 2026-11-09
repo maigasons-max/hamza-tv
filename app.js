@@ -347,7 +347,7 @@ const ajouterLocal = (url, titre) => {
   ecrireLocaux(l);
   try { if (window.CATALOGUE && CATALOGUE.series) CATALOGUE.series.unshift(item); } catch (e) {}
 };
-const brancherLiens = () => {
+function brancherLiens() {
   const b = document.querySelector("#lien-ajouter");
   if (!b) return;
   b.onclick = () => {
@@ -357,7 +357,7 @@ const brancherLiens = () => {
     ajouterLocal(u.trim(), t);
     rendre("liens");
   };
-};
+}
 
 function rendre(nouvelleVue) {
   if (nouvelleVue) vue = nouvelleVue;
