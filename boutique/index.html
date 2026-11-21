@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0c">
+<title>Nexus Marché</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+
+<header class="entete">
+  <a class="marque" href="#" aria-label="Accueil">
+    <span class="marque-point"></span>
+    <span class="marque-texte">NEXUS<em>marché</em></span>
+  </a>
+  <nav class="onglets" id="onglets" aria-label="Catégories"></nav>
+  <button class="panier" id="btn-panier" aria-label="Panier">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8h12l-1.2 10.2a2 2 0 0 1-2 1.8H9.2a2 2 0 0 1-2-1.8L6 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>
+    <span class="panier-n" id="panier-n">0</span>
+  </button>
+</header>
+
+<main>
+  <section class="ouverture">
+    <p class="sur-titre">Ouagadougou · livraison 48 h</p>
+    <h1>Tout ce qui se porte,<br><span class="accent">se branche</span> et se roule.</h1>
+    <p class="chapeau">Une sélection tenue à la main : high-tech, mode, maison, beauté, deux-roues et quatre-roues. Peu de références, toutes choisies.</p>
+    <div class="ouverture-actions">
+      <button class="bouton fort" id="btn-explorer">Explorer la sélection</button>
+      <button class="bouton doux" id="btn-essai">Essayer un vêtement</button>
+    </div>
+    <div class="chiffres">
+      <div><strong>6</strong><span>univers</span></div>
+      <div><strong>48 h</strong><span>livraison</span></div>
+      <div><strong>0</strong><span>faux avis</span></div>
+    </div>
+  </section>
+
+  <div id="rayons"></div>
+
+  <section class="bloc-essai" id="bloc-essai">
+    <div class="bloc-essai-tete">
+      <p class="sur-titre">Essayage</p>
+      <h2>Voir la pièce sur vous, avant d'acheter.</h2>
+      <p class="chapeau">Chargez une photo, posez le vêtement, ajustez. Rien ne quitte votre téléphone : tout se passe dans la page.</p>
+    </div>
+    <div class="essai">
+      <div class="essai-scene" id="essai-scene">
+        <input type="file" id="photo" accept="image/*" hidden>
+        <div class="essai-vide" id="essai-vide">
+          <button class="bouton fort" id="btn-photo">Choisir une photo</button>
+          <p>Photo de face, debout, sur fond simple : le rendu est bien meilleur.</p>
+        </div>
+        <canvas id="toile"></canvas>
+        <div class="essai-grille" id="essai-grille" hidden></div>
+      </div>
+      <div class="essai-reglages">
+        <p class="sur-titre">Pièce</p>
+        <div class="essai-pieces" id="essai-pieces"></div>
+        <label>Taille <input type="range" id="r-taille" min="20" max="180" value="80"></label>
+        <label>Position <input type="range" id="r-y" min="-40" max="40" value="0"></label>
+        <label>Rotation <input type="range" id="r-rot" min="-25" max="25" value="0"></label>
+        <label>Opacité <input type="range" id="r-op" min="30" max="100" value="92"></label>
+        <div class="essai-actions">
+          <button class="bouton doux" id="btn-reset">Réinitialiser</button>
+          <button class="bouton fort" id="btn-export">Enregistrer l'image</button>
+        </div>
+        <p class="note">Aperçu indicatif : il aide à choisir la coupe et la couleur, il ne remplace pas un essayage réel.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="voile" id="voile" hidden></div>
+
+<article class="fiche" id="fiche" hidden aria-live="polite">
+  <button class="fiche-fermer" id="fiche-fermer" aria-label="Fermer">✕</button>
+  <div class="fiche-media" id="fiche-media"></div>
+  <div class="fiche-corps">
+    <p class="sur-titre" id="fiche-cat"></p>
+    <h2 id="fiche-nom"></h2>
+    <p class="fiche-prix" id="fiche-prix"></p>
+    <p class="fiche-desc" id="fiche-desc"></p>
+    <div class="fiche-variantes" id="fiche-variantes"></div>
+    <div class="fiche-actions">
+      <button class="bouton fort" id="fiche-ajout">Ajouter au panier</button>
+      <button class="bouton doux" id="fiche-essai">Essayer sur une photo</button>
+    </div>
+
+    <section class="avis">
+      <div class="avis-tete">
+        <h3>Avis</h3>
+        <span class="avis-etat" id="avis-etat"></span>
+      </div>
+      <div id="avis-corps"></div>
+    </section>
+  </div>
+</article>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
