@@ -79,26 +79,38 @@
     <div class="wrap">
       <h2 class="rv">La pièce sur <em>vous</em></h2>
       <p class="chapeau rv">Une photo, un vêtement, quatre réglages. Tout reste dans votre téléphone : aucune image ne quitte la page.</p>
-      <div class="essai" data-essai>
+      <div class="essai generateur" data-essai>
         <div class="essai-scene">
-          <canvas></canvas>
-          <label class="essai-depot">
-            <input type="file" accept="image/*" hidden>
+          <canvas data-toile width="720" height="960"></canvas>
+          <label class="essai-depot" data-depot>
+            <input type="file" accept="image/*" data-photo hidden>
             <span>Choisir une photo</span>
+            <small>Photo de vous, debout, de face</small>
           </label>
         </div>
         <div class="essai-reglages">
           <div class="pieces">
-            <button data-piece="tee" aria-pressed="true">T-shirt</button>
-            <button data-piece="veste" aria-pressed="false">Veste</button>
-            <button data-piece="robe" aria-pressed="false">Robe</button>
+            <label>Pièce
+              <select data-piece>
+                <option value="tshirt">T-shirt</option>
+                <option value="veste">Veste</option>
+                <option value="chemise">Chemise</option>
+                <option value="robe">Robe</option>
+              </select>
+            </label>
           </div>
-          <label>Taille<input type="range" data-reglage="taille" min="20" max="180" value="80"></label>
-          <label>Hauteur<input type="range" data-reglage="y" min="-40" max="40" value="0"></label>
-          <label>Angle<input type="range" data-reglage="rot" min="-25" max="25" value="0"></label>
-          <label>Opacité<input type="range" data-reglage="op" min="30" max="100" value="92"></label>
-          <button class="btn large" data-enregistrer>Enregistrer l'image</button>
+          <label>Taille<input type="range" data-taille min="40" max="180" value="100"></label>
+          <label>Hauteur<input type="range" data-haut min="10" max="80" value="42"></label>
+          <label>Angle<input type="range" data-angle min="-20" max="20" value="0"></label>
+          <label>Opacité<input type="range" data-opacite min="40" max="100" value="100"></label>
+          <label>Accord de lumière<input type="range" data-lumiere min="0" max="100" value="45"></label>
+          <div class="essai-actions">
+            <button class="btn large" data-export>Enregistrer le rendu</button>
+            <button class="btn fantome" data-reinit>Recommencer</button>
+          </div>
+          <p class="note">Rendu calculé dans votre téléphone : la photo ne sort jamais. Le modèle d'image par IA se branchera sur ce même bouton.</p>
         </div>
+      </div>
       </div>
     </div>
   </section>
@@ -140,6 +152,7 @@
 
 <script src="../shared/data.js"></script>
 <script src="../shared/moteur.js"></script>
+<script src="generateur.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

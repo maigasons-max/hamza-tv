@@ -168,7 +168,9 @@ function tuiles() {
   grille.innerHTML = UNIVERS.map(u => {
     const articles = PRODUITS.filter(p => p.cat === u.id);
     const mini = articles.length ? fcfa(Math.min(...articles.map(p => p.prix))) : "—";
-    return `<button class="tuile rv" data-univ="${u.id}" type="button">
+    const premier = articles[0];
+    const fond = premier && window.visuelProduit ? ` style="--fond:url('${window.visuelProduit(premier)}')"` : "";
+    return `<button class="tuile rv" data-univ="${u.id}" type="button"${fond}>
       <span class="tuile-n">${articles.length}</span>
       <h3>${u.nom}</h3>
       <p>${u.sous}</p>
@@ -285,9 +287,21 @@ function toast(texte) {
   t._min = setTimeout(() => { t.hidden = true; }, 2400);
 }
 
+function poserVisuel(f, p) {
+  const zone = f.querySelector("[data-visuel]");
+  if (!zone || !p || !window.visuelProduit) return;
+  zone.innerHTML = `<img alt="${p.nom}" src="${window.visuelProduit(p)}">`;
+}
+
 function brancherFiche() {
   const f = $("#fiche");
   if (!f) return;
+  /* le visuel suit la fiche, quel que soit le chemin d'ouverture */
+  new MutationObserver(() => {
+    if (f.hidden) return;
+    const nom = (f.querySelector("[data-nom]")?.textContent || "").trim();
+    poserVisuel(f, PRODUITS.find(x => x.nom === nom));
+  }).observe(f, { attributes: true, attributeFilter: ["hidden"] });
   const fermer = $("#fiche-fermer"), voile = $("#voile");
   if (fermer) fermer.onclick = fermerFiche;
   if (voile) voile.onclick = fermerFiche;
@@ -314,7 +328,7 @@ document.addEventListener("DOMContentLoaded", () => {
   compteurs();
   apparitions();
   brancherFiche();
-  $$("[data-essai]").forEach(z => monterEssayage(z));
+  $$("[data-essai]").forEach(z => window.monterGenerateur(z));
 });
 
 })();
