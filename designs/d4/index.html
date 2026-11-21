@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050506">
+<meta name="description" content="Maïga Market — tous les univers au même endroit : tech, mode, maison, beauté, motos, autos. Livraison à Ouagadougou.">
+<title>Maïga Market — le marché de demain</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-maiga>
+
+<canvas id="fx" aria-hidden="true"></canvas>
+<div class="spot" id="spot" aria-hidden="true"></div>
+<a class="saut" href="#univers">Aller à la sélection</a>
+
+<nav>
+  <a class="brand" href="#" aria-label="Maïga Market, accueil">
+    <svg viewBox="0 0 1024 1024" aria-hidden="true">
+      <defs><linearGradient id="a" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#fff0b8"/><stop offset=".4" stop-color="#e8bf5a"/><stop offset="1" stop-color="#b8861f"/>
+      </linearGradient></defs>
+      <rect width="1024" height="1024" rx="224" fill="#0b0b0d"/>
+      <path d="M410 410V344a102 102 0 0 1 204 0V410" fill="none" stroke="url(#a)" stroke-width="36" stroke-linecap="round"/>
+      <rect x="292" y="380" width="440" height="420" rx="56" fill="url(#a)"/>
+      <path d="M398 712V516L512 640L626 516V712" fill="none" stroke="#0b0b0d" stroke-width="58"/>
+    </svg>
+    <span>MAÏGA<em>MARKET</em></span>
+  </a>
+
+  <div class="recherche" role="search">
+    <input id="champ" type="search" placeholder="Chercher un produit, un univers…" autocomplete="off" aria-label="Rechercher un produit">
+    <div class="suggestions" id="suggestions" hidden></div>
+  </div>
+
+  <div class="nav-actions">
+    <button class="panier" id="btn-panier" aria-label="Panier">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8h12l-1.2 10.2a2 2 0 0 1-2 1.8H9.2a2 2 0 0 1-2-1.8L6 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>
+      <span id="panier-n">0</span>
+    </button>
+    <a class="btn" href="#cta">Entrer</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <p class="tag">Le marché de demain · Ouagadougou</p>
+  <h1>MAÏGA<br>MARKET</h1>
+  <p class="sub">Tout ce que vous cherchez, au même endroit. Six univers, des pièces choisies une par une, et des avis qui ne sont jamais inventés.</p>
+
+  <div class="anneau-zone" id="anneau-zone">
+    <div class="anneau" id="anneau" role="list" aria-label="Univers en rotation"></div>
+  </div>
+  <p class="anneau-aide">Faites glisser, ou utilisez les flèches du clavier</p>
+</header>
+
+<div class="marq" aria-hidden="true"><div id="mq"></div></div>
+
+<main>
+  <section id="univers">
+    <div class="wrap">
+      <h2 class="rv">Les <em>univers</em> du Market</h2>
+      <div class="grille" id="grille"></div>
+    </div>
+  </section>
+
+  <section class="chiffres-section">
+    <div class="wrap">
+      <div class="chiffres rv">
+        <div><b data-n="12">0</b><span>pièces choisies</span></div>
+        <div><b data-n="6">0</b><span>univers</span></div>
+        <div><b data-n="48">0</b><span>heures de livraison</span></div>
+        <div><b data-n="0">0</b><span>faux avis</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="bloc-essai" id="essai">
+    <div class="wrap">
+      <h2 class="rv">La pièce sur <em>vous</em></h2>
+      <p class="chapeau rv">Une photo, un vêtement, quatre réglages. Tout reste dans votre téléphone : aucune image ne quitte la page.</p>
+      <div class="essai" data-essai>
+        <div class="essai-scene">
+          <canvas></canvas>
+          <label class="essai-depot">
+            <input type="file" accept="image/*" hidden>
+            <span>Choisir une photo</span>
+          </label>
+        </div>
+        <div class="essai-reglages">
+          <div class="pieces">
+            <button data-piece="tee" aria-pressed="true">T-shirt</button>
+            <button data-piece="veste" aria-pressed="false">Veste</button>
+            <button data-piece="robe" aria-pressed="false">Robe</button>
+          </div>
+          <label>Taille<input type="range" data-reglage="taille" min="20" max="180" value="80"></label>
+          <label>Hauteur<input type="range" data-reglage="y" min="-40" max="40" value="0"></label>
+          <label>Angle<input type="range" data-reglage="rot" min="-25" max="25" value="0"></label>
+          <label>Opacité<input type="range" data-reglage="op" min="30" max="100" value="92"></label>
+          <button class="btn large" data-enregistrer>Enregistrer l'image</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta" id="cta">
+    <h2 class="rv">Prêt à entrer dans le <em>Market</em> ?</h2>
+    <p class="rv chapeau">On répond sur WhatsApp, on livre à Ouagadougou en 48 heures.</p>
+    <a class="btn large rv" href="https://wa.me/22675997723">Commencer sur WhatsApp</a>
+  </section>
+</main>
+
+<footer>
+  <span>© 2026 Maïga Market · Ouagadougou, Burkina Faso</span>
+  <a href="admin.html">Espace administrateur</a>
+</footer>
+
+<div id="voile" hidden></div>
+<article id="fiche" hidden aria-live="polite">
+  <button id="fiche-fermer" aria-label="Fermer">✕</button>
+  <div class="fiche-visuel" data-visuel></div>
+  <div class="fiche-corps">
+    <p class="tag-mini" data-cat></p>
+    <h2 data-nom></h2>
+    <p class="fiche-prix" data-prix></p>
+    <p class="fiche-desc" data-desc></p>
+    <div class="variantes" data-variantes></div>
+    <div class="fiche-actions">
+      <button class="btn large" id="fiche-ajout">Ajouter au panier</button>
+      <a class="btn fantome" href="#essai" id="fiche-essai">Essayer sur une photo</a>
+    </div>
+    <section class="avis-bloc">
+      <div class="avis-titre"><h3>Avis</h3><span data-avis-etat></span></div>
+      <div data-avis></div>
+    </section>
+  </div>
+</article>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="../shared/data.js"></script>
+<script src="../shared/moteur.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
