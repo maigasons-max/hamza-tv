@@ -24,6 +24,50 @@
     <div class="kpi"><span>En attente</span><strong data-kpi-attente></strong></div>
   </div>
 
+  <section class="bloc" id="gestion">
+    <h2>Gérer la boutique</h2>
+    <p class="chapeau">C'est ici que vous créez vos catégories et que vous ajoutez vos articles. Le site se met à jour aussitôt.</p>
+    <p id="retour" class="retour" hidden></p>
+
+    <div class="gestion-duo">
+      <div class="gestion-panneau">
+        <h3>Nouvelle catégorie</h3>
+        <form id="form-categorie" class="form">
+          <label>Nom<input id="c-nom" required placeholder="Bijoux, Sport, Bébé…"></label>
+          <label>Sous-titre<input id="c-sous" placeholder="colliers, bagues"></label>
+          <label class="bascule"><input type="checkbox" id="c-portable"> cette catégorie se porte (essayage possible)</label>
+          <button class="btn" type="submit">Créer la catégorie</button>
+        </form>
+        <ul id="liste-categories" class="liste-gestion"></ul>
+      </div>
+
+      <div class="gestion-panneau">
+        <h3>Nouvel article</h3>
+        <form id="form-produit" class="form">
+          <label>Nom<input id="p-nom" required placeholder="Collier Sahel"></label>
+          <label>Catégorie<select id="p-cat" required></select></label>
+          <label>Détail court<input id="p-sous" placeholder="argent 925"></label>
+          <div class="form-duo">
+            <label>Prix de vente<input id="p-prix" type="number" min="0" required placeholder="25000"></label>
+            <label>Prix d'achat<input id="p-achat" type="number" min="0" placeholder="14000"></label>
+          </div>
+          <div class="form-duo">
+            <label>Stock<input id="p-stock" type="number" min="0" value="10"></label>
+            <label>Variantes<input id="p-variantes" placeholder="S, M, L"></label>
+          </div>
+          <label>Description<textarea id="p-desc" rows="2" placeholder="Matière, dimensions, entretien…"></textarea></label>
+          <label>Photo<input id="p-photo" type="file" accept="image/*"></label>
+          <img id="p-apercu" class="apercu-produit" alt="" hidden>
+          <button class="btn" type="submit">Ajouter au catalogue</button>
+        </form>
+      </div>
+    </div>
+
+    <h3 class="titre-liste">Articles en ligne</h3>
+    <ul id="liste-produits" class="liste-gestion"></ul>
+    <button class="mini" id="tout-effacer" type="button">Revenir au catalogue d'exemple</button>
+  </section>
+
   <section class="bloc">
     <h2>Ventes, quatorze derniers jours</h2>
     <div data-courbe></div>
@@ -64,6 +108,8 @@
   </section>
 </div>
 <script src="../shared/data.js"></script>
+<script src="../shared/store.js"></script>
 <script src="../shared/moteur.js"></script>
+<script src="admin.js"></script>
 </body>
 </html>

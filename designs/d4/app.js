@@ -278,6 +278,17 @@ function apparitions() {
 
 /* ---------------- fiche, panier ---------------- */
 let panier = 0;
+/* L'essayage n'a de sens que pour ce qui se porte : on masque le bloc
+   quand le produit ouvert appartient à une catégorie d'objets. */
+function majPortable(produit) {
+  const bloc = $("#essai");
+  const lien = $("#fiche-essai");
+  if (!bloc) return;
+  const portable = produit && window.Store ? window.Store.estPortable(produit.cat) : true;
+  bloc.hidden = !portable;
+  if (lien) lien.hidden = !portable;
+}
+
 function toast(texte) {
   const t = $("#toast");
   if (!t) return;
@@ -300,7 +311,9 @@ function brancherFiche() {
   new MutationObserver(() => {
     if (f.hidden) return;
     const nom = (f.querySelector("[data-nom]")?.textContent || "").trim();
-    poserVisuel(f, PRODUITS.find(x => x.nom === nom));
+    const produit = PRODUITS.find(x => x.nom === nom);
+    poserVisuel(f, produit);
+    majPortable(produit);
   }).observe(f, { attributes: true, attributeFilter: ["hidden"] });
   const fermer = $("#fiche-fermer"), voile = $("#voile");
   if (fermer) fermer.onclick = fermerFiche;
