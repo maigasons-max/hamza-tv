@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Teranexus — sélection</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-accueil>
+
+<header class="bandeau">
+  <span class="bandeau-num">TERRE</span>
+  <a class="logo" href="#">TERANEXUS</a>
+  <nav class="menu">
+    <a href="#rayons">Sélection</a>
+    <a href="#essai">Essayage</a>
+    <a href="admin.html">Admin</a>
+  </nav>
+</header>
+
+<section class="une">
+  <div class="une-gauche">
+    <p class="etiquette">Ouagadougou · livraison 48 h</p>
+    <h1>Des objets<br>qui viennent<br><em>de la terre.</em></h1>
+  </div>
+  <div class="une-droite">
+    <p>Six rayons tenus à la main. Tech, mode, maison, beauté, deux-roues, quatre-roues. On garde peu de références, on les connaît toutes.</p>
+    <div class="une-actions">
+      <button class="lien-fort" data-vers-rayons>Voir la sélection →</button>
+      <button class="lien-doux" data-vers-essai>Essayer un vêtement</button>
+    </div>
+    <dl class="tirets">
+      <div><dt>Références</dt><dd>12</dd></div>
+      <div><dt>Univers</dt><dd>6</dd></div>
+      <div><dt>Faux avis</dt><dd>0</dd></div>
+    </dl>
+  </div>
+</section>
+
+<nav class="sommaire" data-onglets aria-label="Univers"></nav>
+
+<div data-rayons id="rayons"></div>
+
+<section class="essai-bloc" id="essai" data-essai-bloc>
+  <div class="essai-texte">
+    <p class="etiquette">Essayage</p>
+    <h2>La pièce sur vous,<br>avant de payer.</h2>
+    <p>Une photo, un vêtement, deux réglages. Tout reste dans votre téléphone : aucune image ne part sur un serveur.</p>
+  </div>
+  <div class="essai-outil" data-essai>
+    <div class="essai-scene">
+      <canvas></canvas>
+      <label class="essai-depot">
+        <input type="file" accept="image/*" hidden>
+        <span>Choisir une photo</span>
+      </label>
+    </div>
+    <div class="essai-reglages">
+      <div class="pieces">
+        <button data-piece="tee" aria-pressed="true">T-shirt</button>
+        <button data-piece="veste" aria-pressed="false">Veste</button>
+        <button data-piece="robe" aria-pressed="false">Robe</button>
+      </div>
+      <label>Taille<input type="range" data-reglage="taille" min="20" max="180" value="80"></label>
+      <label>Hauteur<input type="range" data-reglage="y" min="-40" max="40" value="0"></label>
+      <label>Angle<input type="range" data-reglage="rot" min="-25" max="25" value="0"></label>
+      <label>Opacité<input type="range" data-reglage="op" min="30" max="100" value="92"></label>
+      <button class="lien-fort" data-enregistrer>Enregistrer l'image</button>
+    </div>
+  </div>
+</section>
+
+<footer class="pied">
+  <span>Teranexus — Ouagadougou</span>
+  <span>Avis vérifiés uniquement</span>
+  <a href="admin.html">Espace administrateur</a>
+</footer>
+
+<div id="voile" hidden></div>
+<article id="fiche" hidden>
+  <button id="fiche-fermer" aria-label="Fermer">✕</button>
+  <div class="fiche-visuel" data-visuel></div>
+  <div class="fiche-corps">
+    <p class="etiquette" data-cat></p>
+    <h2 data-nom></h2>
+    <p class="fiche-prix" data-prix></p>
+    <p class="fiche-desc" data-desc></p>
+    <div class="variantes" data-variantes></div>
+    <div class="avis-bloc">
+      <div class="avis-titre"><h3>Avis</h3><span data-avis-etat></span></div>
+      <div data-avis></div>
+    </div>
+  </div>
+</article>
+
+<script src="../shared/data.js"></script>
+<script src="../shared/moteur.js"></script>
+</body>
+</html>

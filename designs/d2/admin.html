@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nexus Nocturne — tableau de bord</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-admin>
+<div class="admin">
+  <header class="admin-tete">
+    <h1>Pilotage</h1>
+    <span class="etiquette">Administrateur</span>
+    <a href="index.html">← Retour à la boutique</a>
+  </header>
+
+  <div class="kpis">
+    <div class="kpi"><span>Chiffre d'affaires</span><strong data-kpi-ca></strong></div>
+    <div class="kpi"><span>Bénéfice</span><strong data-kpi-marge></strong></div>
+    <div class="kpi"><span>Taux de marge</span><strong data-kpi-taux></strong></div>
+    <div class="kpi"><span>Panier moyen</span><strong data-kpi-panier></strong></div>
+    <div class="kpi"><span>Commandes payées</span><strong data-kpi-commandes></strong></div>
+    <div class="kpi"><span>En attente</span><strong data-kpi-attente></strong></div>
+  </div>
+
+  <section class="bloc">
+    <h2>Ventes, quatorze derniers jours</h2>
+    <div data-courbe></div>
+    <div class="jours" data-jours></div>
+  </section>
+
+  <div class="deux-colonnes">
+    <section class="bloc">
+      <h2>Meilleures rentrées</h2>
+      <div data-top></div>
+    </section>
+    <section class="bloc">
+      <h2>Stocks à surveiller</h2>
+      <ul class="propre" data-stock></ul>
+    </section>
+  </div>
+
+  <section class="bloc">
+    <h2>Commandes récentes</h2>
+    <table>
+      <thead><tr><th>Réf.</th><th>Produit</th><th>Qté</th><th>Montant</th><th>État</th><th>Date</th><th>Canal</th></tr></thead>
+      <tbody data-commandes></tbody>
+    </table>
+  </section>
+
+  <section class="bloc">
+    <h2>Catalogue, prix et marges</h2>
+    <table>
+      <thead><tr><th>Produit</th><th>Univers</th><th>Vente</th><th>Achat</th><th>Marge</th><th>%</th><th>Stock</th></tr></thead>
+      <tbody data-produits></tbody>
+    </table>
+  </section>
+
+  <section class="bloc">
+    <h2>Lectures automatiques</h2>
+    <ul class="lectures" data-lectures></ul>
+    <p style="font-size:12px;color:var(--encre-doux);margin-top:12px">Ces phrases sont calculées à partir des commandes ci-dessus. Aucune donnée inventée : si une ligne n'a pas de base, elle ne s'affiche pas.</p>
+  </section>
+</div>
+<script src="../shared/data.js"></script>
+<script src="../shared/moteur.js"></script>
+</body>
+</html>

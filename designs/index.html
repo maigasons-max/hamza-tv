@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trois directions — choix du design</title>
+<style>
+  :root{--fond:#0b0b0d;--trait:rgba(255,255,255,.12);--texte:#f2efe8;--doux:rgba(242,239,232,.6)}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--fond);color:var(--texte);font-family:ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif;
+       padding:clamp(24px,6vw,80px) clamp(18px,5vw,64px) 80px}
+  h1{font-family:Georgia,serif;font-weight:400;font-size:clamp(30px,5vw,58px);line-height:1.02;margin:0 0 14px;letter-spacing:-.02em}
+  p.intro{max-width:62ch;color:var(--doux);line-height:1.6;margin:0 0 40px}
+  .grille{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:clamp(14px,2vw,24px)}
+  .carte{border:1px solid var(--trait);border-radius:22px;overflow:hidden;text-decoration:none;color:inherit;
+         display:flex;flex-direction:column;transition:transform .3s,border-color .3s}
+  .carte:hover{transform:translateY(-5px);border-color:rgba(255,255,255,.32)}
+  .vignette{aspect-ratio:16/10;display:grid;place-items:center;font-family:Georgia,serif;font-size:clamp(22px,3vw,30px)}
+  .v1{background:linear-gradient(150deg,#f3efe4,#e0d7c3);color:#14130f}
+  .v2{background:radial-gradient(circle at 30% 20%,#7c5cff,transparent 60%),radial-gradient(circle at 75% 80%,#22e0c8,transparent 55%),#0a0a12;color:#eceaf6}
+  .v3{background:linear-gradient(150deg,#f6f1e7,#e2d6c1);color:#2b2a24}
+  .carte-corps{padding:18px 20px 22px;display:flex;flex-direction:column;gap:8px}
+  .carte-corps strong{font-size:16px;font-weight:600}
+  .carte-corps span{font-size:13px;color:var(--doux);line-height:1.55}
+  .liens{display:flex;gap:14px;margin-top:6px;font-size:12.5px}
+  .liens a{color:var(--texte);text-decoration:none;border-bottom:1px solid var(--trait);padding-bottom:2px}
+  .liens a:hover{border-color:var(--texte)}
+  footer{margin-top:44px;color:var(--doux);font-size:12.5px;line-height:1.6}
+</style>
+</head>
+<body>
+  <h1>Trois directions,<br>un seul choix.</h1>
+  <p class="intro">Même catalogue, mêmes fonctions : accueil, fiche produit avec avis honnêtes, essayage, et tableau de bord administrateur avec ventes, marges et stocks. Seule l'architecture visuelle change. Ouvre les trois, l'accueil et l'admin, puis dis-moi laquelle on garde.</p>
+
+  <div class="grille">
+    <a class="carte" href="d1/index.html">
+      <div class="vignette v1">Papier</div>
+      <div class="carte-corps">
+        <strong>1 · Papier</strong>
+        <span>Magazine imprimé : encre noire, filets fins, typographie sérif, accent rouge brique. Calme, cher, éditorial.</span>
+        <div class="liens"><a href="d1/index.html">Boutique</a><a href="d1/admin.html">Admin</a></div>
+      </div>
+    </a>
+    <a class="carte" href="d2/index.html">
+      <div class="vignette v2">Nocturne</div>
+      <div class="carte-corps">
+        <strong>2 · Nocturne</strong>
+        <span>Nuit dense, verre, deux néons violet et cyan. Cartes qui lévitent, chiffres qui brillent. Tech, jeune, spectaculaire.</span>
+        <div class="liens"><a href="d2/index.html">Boutique</a><a href="d2/admin.html">Admin</a></div>
+      </div>
+    </a>
+    <a class="carte" href="d3/index.html">
+      <div class="vignette v3">Terre</div>
+      <div class="carte-corps">
+        <strong>3 · Terre</strong>
+        <span>Argile, olive, sable. Formes rondes, ombres douces, sérif chaleureux. Artisanal, local, rassurant.</span>
+        <div class="liens"><a href="d3/index.html">Boutique</a><a href="d3/admin.html">Admin</a></div>
+      </div>
+    </a>
+  </div>
+
+  <footer>Les trois tournent sur les mêmes données de démonstration. Aucun faux avis : les blocs d'avis disent la vérité quand il n'y en a pas. L'essayage reste dans le téléphone, rien n'est envoyé.</footer>
+</body>
+</html>
