@@ -295,6 +295,67 @@ function majPortable(produit) {
   if (note) note.hidden = portable;
 }
 
+
+/* ---------------- catalogue : les articles, avec leur image ---------------- */
+let filtreCatalogue = "tout";
+let pagesAffichees = 2;
+
+function catalogue() {
+  const zone = $("#produits");
+  const filtres = $("#filtres");
+  const plus = $("#voir-plus");
+  if (!zone || !filtres) return;
+
+  const liste = () => filtreCatalogue === "tout"
+    ? PRODUITS
+    : PRODUITS.filter(p => p.cat === filtreCatalogue);
+
+  const dessinerFiltres = () => {
+    const compte = c => PRODUITS.filter(p => p.cat === c).length;
+    filtres.innerHTML =
+      `<button class="puce${filtreCatalogue === "tout" ? " on" : ""}" data-cat="tout">Tout<small>${PRODUITS.length}</small></button>` +
+      UNIVERS.filter(u => compte(u.id)).map(u =>
+        `<button class="puce${filtreCatalogue === u.id ? " on" : ""}" data-cat="${u.id}">${u.nom}<small>${compte(u.id)}</small></button>`
+      ).join("");
+    $$(".puce", filtres).forEach(b => b.onclick = () => {
+      filtreCatalogue = b.dataset.cat;
+      pagesAffichees = 2;
+      dessinerFiltres();
+      dessinerProduits();
+    });
+  };
+
+  const carte = p => {
+    const img = window.visuelProduit ? window.visuelProduit(p) : "";
+    const rupture = p.stock <= 0;
+    return `<button class="article" data-produit="${p.id}" type="button">
+      <span class="article-visuel"><img src="${img}" alt="${p.nom}" loading="lazy" width="600" height="620"></span>
+      <span class="article-corps">
+        <strong>${p.nom}</strong>
+        <small>${p.sous || ""}</small>
+        <span class="article-prix">${fcfa(p.prix)}</span>
+        ${rupture ? '<em class="rupture">épuisé</em>' : (p.stock < 6 ? '<em class="rare">plus que ' + p.stock + '</em>' : '')}
+      </span>
+    </button>`;
+  };
+
+  const dessinerProduits = () => {
+    const tout = liste();
+    const lot = tout.slice(0, pagesAffichees * 24);
+    zone.innerHTML = lot.map(carte).join("") || '<p class="vide">Aucun article dans cette catégorie.</p>';
+    $$(".article", zone).forEach(b => b.onclick = () => ouvrirFiche(b.dataset.produit));
+    if (plus) plus.hidden = lot.length >= tout.length;
+  };
+
+  if (plus) plus.onclick = () => { pagesAffichees += 1; dessinerProduits(); };
+
+  dessinerFiltres();
+  dessinerProduits();
+
+  /* la recherche garde le catalogue synchronisé */
+  document.addEventListener("catalogue:maj", () => { dessinerFiltres(); dessinerProduits(); });
+}
+
 function toast(texte) {
   const t = $("#toast");
   if (!t) return;
@@ -347,6 +408,7 @@ document.addEventListener("DOMContentLoaded", () => {
   compteurs();
   apparitions();
   brancherFiche();
+  catalogue();
   $$("[data-essai]").forEach(z => window.monterGenerateur(z));
 });
 
