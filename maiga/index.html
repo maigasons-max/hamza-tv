@@ -1,0 +1,170 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Maïga · Boutique</title>
+<style>
+:root{--or:#E4C88E;--tx:#F5EDDD;--mu:#A79779;--bg:#070605;--card:rgba(255,255,255,.045);--bd:rgba(228,200,142,.18)}
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--tx);font-family:-apple-system,Segoe UI,Roboto,sans-serif;padding-bottom:86px}
+img{display:block;width:100%;height:100%;object-fit:cover}
+.hd{display:flex;align-items:center;gap:11px;padding:16px 14px 10px;position:sticky;top:0;z-index:20;background:linear-gradient(180deg,#070605 72%,transparent)}
+.hd svg{width:42px;height:42px;flex:0 0 auto}
+.nm{font-size:17px;letter-spacing:.18em;font-weight:600}
+.sb{font-size:9px;color:var(--mu);letter-spacing:.14em;margin-top:3px}
+.ct{margin-left:auto;position:relative;width:42px;height:42px;border-radius:14px;background:var(--card);border:1px solid var(--bd);display:grid;place-items:center;font-size:16px}
+.bd2{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;border-radius:9px;background:var(--or);color:#0b0906;font-size:10px;font-weight:700;display:grid;place-items:center;padding:0 5px}
+</style>
+.wrap{padding:0 14px}
+.inp{width:100%;height:44px;border-radius:13px;background:var(--card);border:1px solid var(--bd);color:var(--tx);padding:0 13px;font-size:13px;outline:none}
+.ch{display:flex;gap:7px;overflow-x:auto;padding:12px 14px 4px;scrollbar-width:none}
+.ch::-webkit-scrollbar{display:none}
+.ch b{font-size:11px;padding:7px 12px;border-radius:9px;background:var(--card);border:1px solid var(--bd);color:var(--mu);font-weight:500;white-space:nowrap}
+.ch b.on{background:var(--or);color:#0b0906;border-color:var(--or)}
+.gd{display:grid;grid-template-columns:1fr 1fr;gap:11px;padding:12px 14px}
+.pc{border-radius:16px;overflow:hidden;background:var(--card);border:1px solid var(--bd);text-align:left;color:inherit}
+.im{height:132px;background:linear-gradient(140deg,#3a2d17,#1a1409 70%);position:relative}
+.pd{padding:9px 10px}
+.pn{font-size:11.5px;line-height:1.3;height:30px;overflow:hidden}
+.pp{font-family:Georgia,serif;font-size:14px;color:var(--or);margin-top:4px}
+.sh{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;display:none}
+.sh.on{display:block}
+.pn2{position:absolute;left:0;right:0;bottom:0;max-height:88%;overflow-y:auto;background:#0d0b08;border-radius:24px 24px 0 0;border-top:1px solid var(--bd);padding:14px 16px 22px}
+.big{height:190px;border-radius:16px;overflow:hidden;background:linear-gradient(140deg,#3a2d17,#1a1409 70%)}
+.t2{font-size:17px;margin-top:12px;line-height:1.3}
+.pr{display:flex;align-items:baseline;gap:9px;margin-top:7px}
+.pr b{font-family:Georgia,serif;font-size:23px;color:var(--or)}
+.ds{font-size:12.5px;color:var(--mu);line-height:1.55;margin-top:9px}
+.qty{display:flex;align-items:center;gap:14px;margin-top:14px}
+.qty button{width:38px;height:38px;border-radius:12px;background:var(--card);border:1px solid var(--bd);color:var(--or);font-size:17px}
+.qty span{font-size:15px;min-width:22px;text-align:center}
+.btn{width:100%;height:50px;border-radius:15px;background:var(--or);color:#0b0906;font-size:14px;font-weight:700;border:0;margin-top:16px;letter-spacing:.02em}
+.ghost{background:transparent;border:1px solid var(--bd);color:var(--tx);font-weight:500}
+.li{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--bd)}
+.li .th{width:52px;height:52px;border-radius:11px;overflow:hidden;background:#241c10;flex:0 0 auto}
+.li .tx{flex:1;font-size:12.5px}
+.li .tx span{display:block;font-size:10.5px;color:var(--mu);margin-top:3px}
+.li .vv{font-family:Georgia,serif;color:var(--or);font-size:14px}
+.tot{margin-top:12px;padding:12px 14px;border-radius:14px;background:var(--card);border:1px solid var(--bd)}
+.tl{display:flex;justify-content:space-between;font-size:12px;color:var(--mu);padding:3px 0}
+.tl.b{color:var(--tx);font-size:14px;padding-top:8px;margin-top:5px;border-top:1px solid var(--bd)}
+.tl.b b{font-family:Georgia,serif;color:var(--or);font-size:17px}
+.pay{display:flex;gap:8px;margin-top:12px}
+.pay div{flex:1;height:56px;border-radius:13px;background:var(--card);border:1px solid var(--bd);display:flex;align-items:center;justify-content:center;text-align:center;font-size:10.5px;color:var(--mu);padding:4px;line-height:1.25}
+.pay div.on{border-color:var(--or);color:var(--or)}
+.lbl{font-size:9px;letter-spacing:.18em;color:var(--mu);margin:14px 0 6px}
+.bar{position:fixed;left:10px;right:10px;bottom:10px;height:56px;border-radius:18px;background:rgba(18,15,10,.94);border:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;padding:0 8px 0 16px;z-index:30;backdrop-filter:blur(14px)}
+.bar b{font-size:12px;color:var(--mu);font-weight:500}
+.bar .go{height:42px;padding:0 18px;border-radius:14px;background:var(--or);color:#0b0906;font-size:12.5px;font-weight:700;border:0}
+.ok{padding:34px 20px;text-align:center}
+.ok h3{font-size:19px;margin-bottom:8px}
+.ok p{font-size:13px;color:var(--mu);line-height:1.6}
+.num{margin:16px auto;display:inline-block;padding:10px 18px;border-radius:12px;border:1px dashed var(--or);color:var(--or);font-family:Georgia,serif;font-size:18px}
+.empty{padding:40px 20px;text-align:center;color:var(--mu);font-size:13px}
+.fb{background:linear-gradient(140deg,#3a2d17,#1a1409 70%);display:grid;place-items:center;font-family:Georgia,serif;font-size:26px;color:#E4C88E88}
+</style></head><body>
+<div class="hd">
+<svg viewBox="0 0 100 100"><rect x="6" y="34" width="88" height="60" rx="14" fill="#E4C88E"/><path d="M34 40V28a16 16 0 0 1 32 0v12" fill="none" stroke="#E4C88E" stroke-width="8"/><path d="M32 82V52l18 18 18-18v30" fill="none" stroke="#0b0906" stroke-width="9"/></svg>
+<div><div class="nm">MAÏGA</div><div class="sb">BOUTIQUE · OUAGADOUGOU</div></div>
+<button class="ct" onclick="ouvrePanier()">◲<span class="bd2" id="nb">0</span></button>
+</div>
+<div class="wrap"><input class="inp" id="q" placeholder="Rechercher un article…" autocomplete="off"></div>
+<div class="ch" id="cats"></div>
+<div class="gd" id="gd"></div>
+<div class="empty" id="vide" style="display:none">Aucun article ne correspond.</div>
+<div class="bar"><b id="bartot">Panier vide</b><button class="go" onclick="ouvrePanier()">Voir</button></div>
+<div class="sh" id="sh"><div class="pn2" id="shc"></div></div>
+<script>
+var P=[],CAT='Tout',CART={},PAY='Orange Money';
+function f(n){return (n||0).toLocaleString('fr-FR').replace(/\u202f/g,' ')+' F';}
+var STATIC=[{"id": "1", "nom": "Sac cuir doré", "prix": 24500, "categorie": "Mode", "photo_url": "https://picsum.photos/seed/sacorc/600/600", "description": "Sac en cuir véritable, finition dorée, bandoulière réglable. Fabriqué à Ouagadougou.", "stock": 10, "actif": true, "ordre": 1}, {"id": "2", "nom": "Robe wax", "prix": 18000, "categorie": "Mode", "photo_url": "https://picsum.photos/seed/robewax/600/600", "description": "Robe en pagne wax, coupe ajustée, tailles S à XL.", "stock": 10, "actif": true, "ordre": 2}, {"id": "3", "nom": "Sandales en cuir", "prix": 12000, "categorie": "Mode", "photo_url": "https://picsum.photos/seed/sandales/600/600", "description": "Sandales artisanales, semelle cousue main, du 38 au 45.", "stock": 10, "actif": true, "ordre": 3}, {"id": "4", "nom": "Chemise en lin", "prix": 15000, "categorie": "Mode", "photo_url": "https://picsum.photos/seed/chemise/600/600", "description": "Chemise légère en lin, idéale pour la chaleur.", "stock": 10, "actif": true, "ordre": 4}, {"id": "5", "nom": "Parfum oud", "prix": 12000, "categorie": "Beauté", "photo_url": "https://picsum.photos/seed/parfum/600/600", "description": "Eau de parfum au oud, tenue longue durée, 50 ml.", "stock": 10, "actif": true, "ordre": 5}, {"id": "6", "nom": "Beurre de karité pur", "prix": 3500, "categorie": "Beauté", "photo_url": "https://picsum.photos/seed/karite/600/600", "description": "Beurre de karité brut du Burkina, pot de 250 g.", "stock": 10, "actif": true, "ordre": 6}, {"id": "7", "nom": "Savon noir", "prix": 2000, "categorie": "Beauté", "photo_url": "https://picsum.photos/seed/savon/600/600", "description": "Savon noir traditionnel, peau douce, 200 g.", "stock": 10, "actif": true, "ordre": 7}, {"id": "8", "nom": "Huile de coco", "prix": 4500, "categorie": "Beauté", "photo_url": "https://picsum.photos/seed/coco/600/600", "description": "Huile de coco pressée à froid, cheveux et peau, 200 ml.", "stock": 10, "actif": true, "ordre": 8}, {"id": "9", "nom": "Écouteurs sans fil", "prix": 9500, "categorie": "Tech", "photo_url": "https://picsum.photos/seed/ecouteurs/600/600", "description": "Bluetooth 5.3, boîtier de charge, autonomie 6 heures.", "stock": 10, "actif": true, "ordre": 9}, {"id": "10", "nom": "Montre connectée", "prix": 22000, "categorie": "Tech", "photo_url": "https://picsum.photos/seed/montre/600/600", "description": "Écran tactile, appels, suivi du sport, batterie 7 jours.", "stock": 10, "actif": true, "ordre": 10}, {"id": "11", "nom": "Chargeur rapide 33W", "prix": 6500, "categorie": "Tech", "photo_url": "https://picsum.photos/seed/chargeur/600/600", "description": "Charge rapide USB-C, câble inclus.", "stock": 10, "actif": true, "ordre": 11}, {"id": "12", "nom": "Enceinte Bluetooth", "prix": 15000, "categorie": "Tech", "photo_url": "https://picsum.photos/seed/enceinte/600/600", "description": "Son puissant, étanche, 12 heures d'autonomie.", "stock": 10, "actif": true, "ordre": 12}, {"id": "13", "nom": "Panier tressé", "prix": 7000, "categorie": "Maison", "photo_url": "https://picsum.photos/seed/panier/600/600", "description": "Panier en fibre naturelle tressée main, grand format.", "stock": 10, "actif": true, "ordre": 13}, {"id": "14", "nom": "Théière traditionnelle", "prix": 8500, "categorie": "Maison", "photo_url": "https://picsum.photos/seed/theiere/600/600", "description": "Théière métal gravée, service pour six personnes.", "stock": 10, "actif": true, "ordre": 14}, {"id": "15", "nom": "Miel du pays", "prix": 5000, "categorie": "Alimentation", "photo_url": "https://picsum.photos/seed/miel/600/600", "description": "Miel pur récolté au Burkina, pot de 500 g.", "stock": 10, "actif": true, "ordre": 15}, {"id": "16", "nom": "Café torréfié", "prix": 3000, "categorie": "Alimentation", "photo_url": "https://picsum.photos/seed/cafe/600/600", "description": "Café local torréfié, moulu, sachet de 250 g.", "stock": 10, "actif": true, "ordre": 16}, {"id": "17", "nom": "Tapis de yoga", "prix": 11000, "categorie": "Sport", "photo_url": "https://picsum.photos/seed/yoga/600/600", "description": "Tapis antidérapant 6 mm, sangle incluse.", "stock": 10, "actif": true, "ordre": 17}, {"id": "18", "nom": "Couverture bébé", "prix": 6000, "categorie": "Bébé", "photo_url": "https://picsum.photos/seed/bebe/600/600", "description": "Couverture douce en coton, 90 x 90 cm.", "stock": 10, "actif": true, "ordre": 18}, {"id": "19", "nom": "Coffret cadeau prestige", "prix": 20000, "categorie": "Cadeaux", "photo_url": "https://picsum.photos/seed/coffret/600/600", "description": "Coffret parfum, karité et savon noir dans une boîte dorée.", "stock": 10, "actif": true, "ordre": 19}];
+function api(d){if(d.action==='produits')return Promise.resolve({ok:true,produits:STATIC});if(d.action==='commande')return Promise.resolve({ok:true,numero:'M'+Date.now().toString(36).toUpperCase().slice(-6)});return Promise.resolve({ok:false});}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function charge(){
+ api({action:'produits'}).then(function(r){
+  P=(r.produits||[]).sort(function(a,b){return (a.ordre||99)-(b.ordre||99);});
+  cats(); grid();
+ }).catch(function(){document.getElementById('gd').innerHTML='<div class="empty">Connexion impossible. Réessaie.</div>';});
+}
+function cats(){
+ var s={}; P.forEach(function(p){s[p.categorie||'Autres']=1;});
+ var l=['Tout'].concat(Object.keys(s));
+ document.getElementById('cats').innerHTML=l.map(function(c){
+  return '<b class="'+(c===CAT?'on':'')+'" onclick="setCat(\''+esc(c).replace(/'/g,"\\'")+'\')">'+esc(c)+'</b>';}).join('');
+}
+function setCat(c){CAT=c;cats();grid();}
+function grid(){
+ var q=(document.getElementById('q').value||'').toLowerCase().trim();
+ var L=P.filter(function(p){
+  if(CAT!=='Tout' && (p.categorie||'Autres')!==CAT) return false;
+  if(q && (p.nom||'').toLowerCase().indexOf(q)<0 && (p.description||'').toLowerCase().indexOf(q)<0) return false;
+  return true;});
+ document.getElementById('vide').style.display=L.length?'none':'block';
+ document.getElementById('gd').innerHTML=L.map(function(p){
+  var im=p.photo_url?'<img src="'+esc(p.photo_url)+'" loading="lazy" onerror="this.style.display=\'none\'">':'';
+  return '<button class="pc" onclick="fiche(\''+p.id+'\')"><div class="im">'+im+'</div><div class="pd"><div class="pn">'+esc(p.nom)+'</div><div class="pp">'+f(p.prix)+'</div></div></button>';
+ }).join('');
+}
+function find(id){for(var i=0;i<P.length;i++) if(P[i].id===id) return P[i];return null;}
+function fiche(id){
+ var p=find(id); if(!p) return;
+ var im=p.photo_url?'<img src="'+esc(p.photo_url)+'" onerror="this.style.display=\'none\'">':'';
+ document.getElementById('shc').innerHTML=
+  '<div class="big">'+im+'</div><div class="t2">'+esc(p.nom)+'</div>'+
+  '<div class="pr"><b>'+f(p.prix)+'</b></div>'+
+  '<div class="ds">'+esc(p.description||'')+'</div>'+
+  '<div class="qty"><button onclick="qte(-1)">−</button><span id="qv">1</span><button onclick="qte(1)">+</button></div>'+
+  '<button class="btn" onclick="ajoute(\''+p.id+'\')">Ajouter au panier</button>'+
+  '<button class="btn ghost" onclick="ferme()">Fermer</button>';
+ QV=1; document.getElementById('sh').classList.add('on');
+}
+var QV=1;
+function qte(d){QV=Math.max(1,QV+d);document.getElementById('qv').textContent=QV;}
+function ferme(){document.getElementById('sh').classList.remove('on');}
+function ajoute(id){CART[id]=(CART[id]||0)+QV;ferme();maj();}
+function maj(){
+ var n=0,t=0;
+ for(var k in CART){n+=CART[k]; var p=find(k); if(p) t+=p.prix*CART[k];}
+ document.getElementById('nb').textContent=n;
+ document.getElementById('bartot').textContent=n?n+' article'+(n>1?'s':'')+' · '+f(t):'Panier vide';
+ return {n:n,t:t};
+}
+function ouvrePanier(){
+ var r=maj();
+ if(!r.n){document.getElementById('shc').innerHTML='<div class="empty">Ton panier est vide.<br>Choisis un article et ajoute-le.</div>';document.getElementById('sh').classList.add('on');return;}
+ var h='<div class="t2" style="margin-top:0">Ton panier</div>';
+ for(var k in CART){var p=find(k); if(!p) continue;
+  var im=p.photo_url?'<img src="'+esc(p.photo_url)+'" onerror="this.style.display=\'none\'">':'';
+  h+='<div class="li"><div class="th">'+im+'</div><div class="tx">'+esc(p.nom)+'<span>'+CART[k]+' × '+f(p.prix)+'</span></div><div class="vv">'+f(p.prix*CART[k])+'</div></div>';
+ }
+ h+='<div class="tot"><div class="tl"><span>Sous-total</span><span>'+f(r.t)+'</span></div>'+
+    '<div class="tl"><span>Livraison Ouagadougou</span><span>1 000 F</span></div>'+
+    '<div class="tl b"><span>Total</span><b>'+f(r.t+1000)+'</b></div></div>';
+ h+='<div class="lbl">PAIEMENT</div><div class="pay">'+['Orange Money','Moov Money','Espèces à la livraison'].map(function(x){
+   return '<div class="'+(PAY===x?'on':'')+'" onclick="setPay(\''+x+'\')">'+x+'</div>';}).join('')+'</div>';
+ h+='<div class="lbl">TES COORDONNÉES</div>'+
+    '<input class="inp" id="cn" placeholder="Nom complet" style="margin-bottom:8px">'+
+    '<input class="inp" id="ct2" placeholder="Téléphone" inputmode="tel" style="margin-bottom:8px">'+
+    '<input class="inp" id="cl" placeholder="Quartier de livraison" style="margin-bottom:8px">'+
+    '<input class="inp" id="cno" placeholder="Note pour le livreur (facultatif)">';
+ h+='<button class="btn" onclick="valide()">Confirmer la commande</button><button class="btn ghost" onclick="ferme()">Continuer mes achats</button>';
+ document.getElementById('shc').innerHTML=h; document.getElementById('sh').classList.add('on');
+}
+function setPay(x){PAY=x;ouvrePanier();}
+function valide(){
+ var n=document.getElementById('cn').value.trim(), t=document.getElementById('ct2').value.trim(),
+     l=document.getElementById('cl').value.trim(), no=document.getElementById('cno').value.trim();
+ if(n.length<2){alert('Écris ton nom.');return;}
+ if(t.replace(/\D/g,'').length<8){alert('Écris un numéro de téléphone valide.');return;}
+ var r=maj(), art=[];
+ for(var k in CART){var p=find(k); if(p) art.push({nom:p.nom,prix:p.prix,q:CART[k]});}
+ var bt=document.querySelector('.btn'); if(bt){bt.textContent='Envoi…';}
+ api({action:'commande',nom:n,tel:t,lieu:l,note:no+' | Paiement: '+PAY,articles:JSON.stringify(art),total:r.t+1000}).then(function(res){
+  if(!res.ok){alert(res.erreur||'Erreur');return;}
+  CART={};maj();
+  var msg=encodeURIComponent('Bonjour Maïga, je viens de passer la commande '+res.numero+' ('+f(r.t+1000)+', '+PAY+').');
+  document.getElementById('shc').innerHTML='<div class="ok"><h3>Commande enregistrée</h3><p>Garde ton numéro, le vendeur te rappelle pour confirmer la livraison.</p><div class="num">'+res.numero+'</div><p style="font-size:12px">Paiement : '+PAY+'<br>Total : '+f(r.t+1000)+'</p><button class="btn" onclick="window.location.href=\'https://wa.me/22675997723?text='+msg+'\'">Écrire au vendeur sur WhatsApp</button><button class="btn ghost" onclick="ferme();location.reload()">Retour à la boutique</button></div>';
+ });
+}
+document.getElementById('q').addEventListener('input',grid);
+document.getElementById('sh').addEventListener('click',function(e){if(e.target.id==='sh')ferme();});
+charge();
+</script></body></html>
