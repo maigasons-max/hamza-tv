@@ -1,0 +1,1 @@
+{"status":402,"success":false,"error":{"code":"FREE_LIMIT","message":"Free limit reached: 1 image every 45 seconds per IP. Retry after 33s, or get unlimited images with a pollen key at https://enter.pollinations.ai/?ref=classic","timestamp":"2026-11-22T08:46:21.176Z","fixUrl":"https://enter.pollinations.ai/?ref=classic"}}

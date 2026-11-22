@@ -173,7 +173,7 @@ function tuiles() {
     const articles = PRODUITS.filter(p => p.cat === u.id);
     const mini = articles.length ? fcfa(Math.min(...articles.map(p => p.prix))) : "—";
     const premier = articles[0];
-    const fond = premier && window.visuelProduit ? ` style="--fond:url('${window.visuelProduit(premier)}')"` : "";
+    const fond = premier ? ` style="--fond:url('${imageDe(premier)}')"` : "";
     return `<button class="tuile rv" data-univ="${u.id}" type="button"${fond}>
       <span class="tuile-n">${articles.length}</span>
       <h3>${u.nom}</h3>
@@ -282,6 +282,13 @@ function apparitions() {
 
 /* ---------------- fiche, panier ---------------- */
 let panier = 0;
+/* Une vraie photo si elle existe, sinon le visuel d'atelier fabrique. */
+function imageDe(p) {
+  if (!p) return "";
+  if (p.photo) return p.photo;
+  return window.visuelProduit ? window.visuelProduit(p) : "";
+}
+
 /* L'essayage n'a de sens que pour ce qui se porte : on masque le bloc
    quand le produit ouvert appartient à une catégorie d'objets. */
 function majPortable(produit) {
@@ -326,7 +333,7 @@ function catalogue() {
   };
 
   const carte = p => {
-    const img = window.visuelProduit ? window.visuelProduit(p) : "";
+    const img = imageDe(p);
     const rupture = p.stock <= 0;
     return `<button class="article" data-produit="${p.id}" type="button">
       <span class="article-visuel"><img src="${img}" alt="${p.nom}" loading="lazy" width="600" height="620"></span>
@@ -367,8 +374,8 @@ function toast(texte) {
 
 function poserVisuel(f, p) {
   const zone = f.querySelector("[data-visuel]");
-  if (!zone || !p || !window.visuelProduit) return;
-  zone.innerHTML = `<img alt="${p.nom}" src="${window.visuelProduit(p)}">`;
+  if (!zone || !p) return;
+  zone.innerHTML = `<img alt="${p.nom}" src="${imageDe(p)}">`;
 }
 
 function brancherFiche() {
