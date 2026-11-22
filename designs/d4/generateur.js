@@ -10,6 +10,10 @@
   const OR = "#e8bf5a", OR2 = "#fff0b8", OR3 = "#b8861f";
 
   const FORME = {
+    boite: (a) => `
+      <rect x="196" y="248" width="208" height="212" rx="16" fill="url(#metal)" stroke="${a}" stroke-width="3"/>
+      <path d="M196 300h208M300 300v160" stroke="${a}" stroke-width="2" opacity=".5"/>
+      <rect x="264" y="330" width="72" height="26" rx="6" fill="none" stroke="${a}" stroke-width="2" opacity=".7"/>`,
     tech: (a) => `
       <rect x="212" y="150" width="176" height="330" rx="34" fill="url(#metal)" stroke="${a}" stroke-width="3"/>
       <rect x="228" y="176" width="144" height="278" rx="20" fill="#0a0a0c" stroke="${a}" stroke-width="1.4" opacity=".85"/>
@@ -48,7 +52,14 @@
 
   function visuelProduit(p) {
     const a = OR;
-    const forme = (FORME[p.cat] || FORME.mode)(a);
+    const MEME = {
+      tech:"tech", audio:"audio", info:"info", image:"image", tv:"tv", jeux:"info", bureau:"info",
+      femme:"mode", homme:"mode", sport:"mode", chaussures:"mode", sacs:"mode", montres:"mode",
+      bijoux:"mode", beaute:"mode", sante:"boite", maison:"boite", cuisine:"boite", meubles:"boite",
+      jardin:"boite", bricolage:"boite", auto:"auto", moto:"moto", pleinair:"boite", bebe:"boite",
+      jouets:"boite", livres:"boite", animaux:"boite", epicerie:"boite", instruments:"boite",
+    };
+    const forme = (FORME[MEME[p.cat]] || FORME.boite)(a);
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 620" width="600" height="620">
       <defs>
         <radialGradient id="fond" cx="50%" cy="34%" r="72%">
@@ -200,6 +211,15 @@
       const lecteur = new FileReader();
       lecteur.onload = () => {
         const img = new Image();
+        img.onerror = () => {
+          /* format refusé par le navigateur (souvent HEIC d'iPhone) : on le dit clairement */
+          if (depot) {
+            depot.style.display = "";
+            const t = depot.querySelector("span");
+            if (t) t.textContent = "Photo non prise en charge — choisissez un JPEG ou un PNG";
+          }
+          if (entree) entree.value = "";
+        };
         img.onload = () => {
           /* on garde la photo d'origine, redimensionnée pour rester fluide */
           const maxL = 900;

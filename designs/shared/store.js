@@ -4,16 +4,16 @@
    toutes les directions artistiques continuent de fonctionner sans modification. */
 
 (function () {
-  const CLE = "nexus-marche-v1";
+  const CLE = "nexus-marche-v2";
 
   const exemple = () => ({
-    categories: UNIVERS.map(u => ({
+    categories: (typeof CATALOGUE !== "undefined" ? CATALOGUE.categories : UNIVERS).map(u => ({
       id: u.id,
       nom: u.nom,
       sous: u.sous,
-      portable: ["mode", "beaute"].includes(u.id) // un vêtement s'essaie, un objet non
+      portable: u.portable !== undefined ? !!u.portable : ["mode", "beaute"].includes(u.id)
     })),
-    produits: PRODUITS.map(p => Object.assign({}, p))
+    produits: (typeof CATALOGUE !== "undefined" ? CATALOGUE.produits : PRODUITS).map(p => Object.assign({}, p))
   });
 
   function lire() {

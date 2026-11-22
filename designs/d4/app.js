@@ -19,7 +19,11 @@ function anneau() {
   if (!zone || !ring) return;
 
   const reduit = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const cartes = UNIVERS.map(u => {
+  /* l'anneau ne garde que les douze univers les mieux garnis : au-delà, les cartes
+     se chevauchent. La grille complète, elle, affiche tout. */
+  const MONTRES_ANNEAU = 12;
+  const classes = UNIVERS.slice().sort((x, y) => PRODUITS.filter(p => p.cat === y.id).length - PRODUITS.filter(p => p.cat === x.id).length).slice(0, MONTRES_ANNEAU);
+  const cartes = classes.map(u => {
     const prix = Math.min(...PRODUITS.filter(p => p.cat === u.id).map(p => p.prix));
     const c = document.createElement("button");
     c.className = "anneau-carte";
@@ -285,8 +289,10 @@ function majPortable(produit) {
   const lien = $("#fiche-essai");
   if (!bloc) return;
   const portable = produit && window.Store ? window.Store.estPortable(produit.cat) : true;
-  bloc.hidden = !portable;
-  if (lien) lien.hidden = !portable;
+  bloc.hidden = false;                 /* le bloc reste toujours accessible */
+  if (lien) lien.hidden = !portable;   /* le raccourci n'apparaît que si ça se porte */
+  const note = $("#fiche-essai-note");
+  if (note) note.hidden = portable;
 }
 
 function toast(texte) {
