@@ -1,1117 +1,953 @@
-/* =========================================================
-   Grand Livre — gestion et comptabilité hors-ligne
-   Aucun serveur, aucune dépendance. Tout en localStorage.
-   ========================================================= */
 (function () {
-"use strict";
+  "use strict";
 
-/* ---------- outils ---------- */
-const $ = (s, r = document) => r.querySelector(s);
-const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-const nf = new Intl.NumberFormat("fr-FR");
-const fcfa = n => nf.format(Math.round(n || 0)).replace(/\u202f|\u00a0/g, " ") + " F";
-const court = n => (Math.abs(n) >= 1e6 ? (n / 1e6).toFixed(1).replace(".0", "") + " M" : Math.abs(n) >= 1e4 ? Math.round(n / 1e3) + " k" : nf.format(Math.round(n || 0)));
-const jour = d => (d || new Date()).toISOString().slice(0, 10);
-const mois = d => (d || new Date()).toISOString().slice(0, 7);
-const joliDate = s => { const [a, m, j] = s.split("-"); return `${j}/${m}/${a}`; };
-const joliMois = s => { const [a, m] = s.split("-"); return ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"][+m - 1] + " " + a; };
-const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
-const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-
-/* ---------- base ---------- */
-const CLE = "grand-livre-v1";
-let DB;
-
-function neuve() {
-  const e = uid();
-  return {
-    version: 1,
-    entreprises: [{ id: e, nom: "Mon entreprise", type: "entreprise" }],
-    active: e,
-    comptes: [{ id: uid(), ent: e, nom: "Caisse", type: "caisse", solde: 0 }],
-    categories: [
-      { id: uid(), nom: "Ventes", type: "revenu" },
-      { id: uid(), nom: "Prestations", type: "revenu" },
-      { id: uid(), nom: "Transport", type: "depense" },
-      { id: uid(), nom: "Loyer", type: "depense" },
-      { id: uid(), nom: "Achats", type: "depense" },
-      { id: uid(), nom: "Salaire", type: "depense" }
-    ],
-    operations: [], produits: [], mouvements: [], tiers: [], dettes: [],
-    employes: [], agenda: [], factures: [], programmees: [], reglages: { theme: "sombre", pin: "" }
+  var ICONES = {
+    accueil: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/>',
+    ecritures: '<path d="M5 3h11l3 3v15H5z"/><path d="M8 9h8M8 13h8M8 17h5"/>',
+    stock: '<path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M3.5 7.5 12 12l8.5-4.5M12 12v9"/>',
+    argent: '<rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18"/><circle cx="17" cy="15" r="1.4"/>',
+    tout: '<rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/>',
+    entree: '<path d="M12 4v13"/><path d="m6.5 11.5 5.5 5.5 5.5-5.5"/><path d="M4 21h16"/>',
+    sortie: '<path d="M12 21V8"/><path d="m6.5 13.5 5.5-5.5 5.5 5.5"/><path d="M4 3h16"/>',
+    echange: '<path d="M4 8h13l-3-3M20 16H7l3 3"/>',
+    panier: '<circle cx="9" cy="20" r="1.4"/><circle cx="17" cy="20" r="1.4"/><path d="M3 4h2l2.6 10.5h10.2L20 7H6"/>',
+    utilisateurs: '<circle cx="9" cy="8" r="3.4"/><path d="M2.8 20c0-3.4 2.8-5.6 6.2-5.6s6.2 2.2 6.2 5.6"/><path d="M17 5.2a3.2 3.2 0 0 1 0 6M18.4 20c0-2.2-.6-3.8-1.8-4.8"/>',
+    facture: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
+    livre: '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M8 7h8M8 11h8"/>',
+    balance: '<path d="M12 3v18M5 7h14"/><path d="M5 7 2.5 13h5zM19 7l-2.5 6h5z"/>',
+    tva: '<circle cx="8" cy="8" r="2.4"/><circle cx="16" cy="16" r="2.4"/><path d="M18 5 6 19"/>',
+    graphique: '<path d="M4 20V4"/><path d="M4 20h16"/><path d="m7 15 4-5 3 3 4-6"/>',
+    agenda: '<rect x="3.5" y="5" width="17" height="16" rx="3"/><path d="M8 3v4M16 3v4M3.5 10h17"/>',
+    import: '<path d="M12 15V4"/><path d="m7.5 8.5 4.5-4.5 4.5 4.5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/>',
+    sauvegarde: '<path d="M12 4v10"/><path d="m8 10 4 4 4-4"/><path d="M4 18h16"/>',
+    reglages: '<circle cx="12" cy="12" r="3.2"/><path d="M19.4 14.5a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2 2 2 0 1 1-4 0 1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9 2 2 0 1 1 0-4 1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 2.9-1.2 2 2 0 1 1 4 0 1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9 2 2 0 1 1 0 4 1.7 1.7 0 0 0-1.5 1z"/>',
+    cle: '<circle cx="8" cy="12" r="4"/><path d="M12 12h9M17 12v4M20 12v3"/>',
+    dettes: '<path d="M4 6h16v12H4z"/><path d="M8 10h8M8 14h4"/>',
+    employes: '<circle cx="12" cy="7" r="3"/><path d="M5 20c0-3.3 3.1-5.5 7-5.5s7 2.2 7 5.5"/>',
+    entreprise: '<path d="M3 21V8l6-4v17"/><path d="M9 21V11l6-3v13"/><path d="M15 21V12l6 3v6"/>'
   };
-}
 
-function charger() {
-  try { DB = JSON.parse(localStorage.getItem(CLE)) || neuve(); }
-  catch (e) { DB = neuve(); }
-  if (!DB.entreprises || !DB.entreprises.length) DB = neuve();
-}
-function sauver() {
-  try { localStorage.setItem(CLE, JSON.stringify(DB)); }
-  catch (e) { toast("Mémoire pleine : retirez des photos"); }
-}
-
-/* ---------- données filtrées sur l'entreprise active ---------- */
-const E = () => DB.active;
-const de = liste => liste.filter(x => x.ent === E());
-const comptes = () => de(DB.comptes);
-const ops = () => de(DB.operations).sort((a, b) => b.date.localeCompare(a.date) || b.cree - a.cree);
-const produits = () => de(DB.produits);
-const tiers = () => de(DB.tiers);
-const dettes = () => de(DB.dettes);
-const employes = () => de(DB.employes);
-const agenda = () => de(DB.agenda).sort((a, b) => a.date.localeCompare(b.date));
-const factures = () => de(DB.factures).sort((a, b) => b.date.localeCompare(a.date));
-const prog = () => de(DB.programmees).sort((a, b) => a.date.localeCompare(b.date));
-const cats = type => de(DB.categories).filter(c => !type || c.type === type);
-
-/* ---------- calculs ---------- */
-const soldeCompte = c => c.solde + de(DB.operations)
-  .filter(o => o.compte === c.id)
-  .reduce((s, o) => s + (o.type === "revenu" ? o.montant : -o.montant), 0);
-
-const soldeTotal = () => comptes().reduce((s, c) => s + soldeCompte(c), 0);
-const somme = (liste, type, m) => liste.filter(o => o.type === type && (!m || o.date.slice(0, 7) === m)).reduce((s, o) => s + o.montant, 0);
-const caMois = m => somme(ops(), "revenu", m || mois());
-const depMois = m => somme(ops(), "depense", m || mois());
-
-function dettesNet() {
-  let dois = 0, doivent = 0;
-  dettes().forEach(d => {
-    const reste = d.montant - (d.paiements || []).reduce((s, p) => s + p.montant, 0);
-    if (d.sens === "je_dois") dois += reste; else doivent += reste;
-  });
-  return { dois, doivent };
-}
-
-function margeProduit(p) { return (p.vente || 0) - (p.achat || 0); }
-
-function beneficeProduit(p) {
-  const vendu = de(DB.mouvements).filter(m => m.produit === p.id && m.type === "vente").reduce((s, m) => s + m.qte, 0);
-  return vendu * margeProduit(p);
-}
-
-function topProduits(n = 5) {
-  return produits().map(p => ({ p, vendu: de(DB.mouvements).filter(m => m.produit === p.id && m.type === "vente").reduce((s, m) => s + m.qte, 0) }))
-    .filter(x => x.vendu > 0).sort((a, b) => b.vendu - a.vendu).slice(0, n);
-}
-
-function stockBas() { return produits().filter(p => (p.qte || 0) <= (p.seuil == null ? 3 : p.seuil)); }
-
-function depensesParCategorie(m) {
-  const map = {};
-  ops().filter(o => o.type === "depense" && o.date.slice(0, 7) === (m || mois()))
-    .forEach(o => { map[o.categorie || "Autre"] = (map[o.categorie || "Autre"] || 0) + o.montant; });
-  return Object.entries(map).sort((a, b) => b[1] - a[1]);
-}
-
-function serie6mois() {
-  const out = [];
-  const d = new Date();
-  for (let i = 5; i >= 0; i--) {
-    const dd = new Date(d.getFullYear(), d.getMonth() - i, 1);
-    const m = dd.toISOString().slice(0, 7);
-    out.push({ m, ca: caMois(m), dep: depMois(m) });
+  function ico(nom, cls) {
+    return '<svg viewBox="0 0 24 24" class="' + (cls || "") + '" stroke-linecap="round" stroke-linejoin="round">' + (ICONES[nom] || "") + '</svg>';
   }
-  return out;
-}
 
-/* ---------- interface : briques ---------- */
-function toast(t) {
-  const el = $("#toast");
-  el.textContent = t; el.hidden = false;
-  clearTimeout(el._t); el._t = setTimeout(() => (el.hidden = true), 2200);
-}
+  var SYNC = "https://solas-a1f836e8.base44.app/functions/grandLivreSync";
+  var CLE_DB = "grand-livre-v2";
+  var CLE_CODE = "grand-livre-code";
 
-function ouvrir(html, apres) {
-  const f = $("#feuille");
-  f.innerHTML = html; f.hidden = false; $("#voile").hidden = false;
-  $$("[data-fermer]", f).forEach(b => b.onclick = fermer);
-  if (apres) apres(f);
-  f.scrollTop = 0;
-}
-function fermer() {
-  $("#feuille").hidden = true; $("#voile").hidden = true;
-  $("#feuille").innerHTML = "";
-}
+  var S = { db: null, code: "", revision: 0, enLigne: false, onglet: "accueil", filtre: "tout", minuteur: null, tirage: null };
 
-function ligne(ico, titre, sous, valeur, classe) {
-  return `<div class="ligne"><div class="ico">${ico}</div><div class="txt"><b>${esc(titre)}</b><small>${esc(sous || "")}</small></div>
-    ${valeur != null ? `<div class="val ${classe || ""}">${valeur}</div>` : ""}</div>`;
-}
+  function fcfa(n) {
+    var v = Math.round(Number(n) || 0);
+    return v.toLocaleString("fr-FR").replace(/\u202f/g, " ") + " F";
+  }
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function jour(d) { var x = d ? new Date(d) : new Date(); return x.toISOString().slice(0, 10); }
+  function mois(d) { return (d || jour()).slice(0, 7); }
+  function moisLisible(m) {
+    var noms = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+    return noms[parseInt(m.slice(5, 7), 10) - 1] + " " + m.slice(0, 4);
+  }
+  function esc(t) { return String(t == null ? "" : t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
 
-/* ---------- navigation ---------- */
-let ongletActif = "accueil";
-function aller(o) {
-  ongletActif = o;
-  $$("#barre button").forEach(b => b.classList.toggle("on", b.dataset.onglet === o));
-  rendre();
-}
-$$("#barre button").forEach(b => b.onclick = () => aller(b.dataset.onglet));
+  function baseVide(nom) {
+    return {
+      entreprise: { nom: nom || "AURA Global", type: "entreprise" },
+      comptes: [
+        { id: uid(), nom: "Caisse", type: "caisse", solde: 0 },
+        { id: uid(), nom: "Orange Money", type: "mobile", solde: 0 },
+        { id: uid(), nom: "Banque", type: "banque", solde: 0 }
+      ],
+      operations: [], produits: [], mouvements: [], clients: [], dettes: [],
+      employes: [], factures: [], agenda: [],
+      categories: [
+        { id: uid(), nom: "Ventes", sens: "entree" },
+        { id: uid(), nom: "Achats", sens: "sortie" },
+        { id: uid(), nom: "Transport", sens: "sortie" },
+        { id: uid(), nom: "Salaires", sens: "sortie" },
+        { id: uid(), nom: "Loyer", sens: "sortie" },
+        { id: uid(), nom: "Divers", sens: "sortie" }
+      ]
+    };
+  }
 
-function rendre() {
-  const v = $("#vue");
-  v.innerHTML = "";
-  const map = { accueil: vueAccueil, operations: vueOperations, stock: vueStock, argent: vueArgent, plus: vuePlus };
-  (map[ongletActif] || vueAccueil)(v);
-  majEntete();
-}
+  function charger() {
+    try { S.db = JSON.parse(localStorage.getItem(CLE_DB) || "null"); } catch (e) { S.db = null; }
+    if (!S.db || !S.db.entreprise) S.db = baseVide();
+    S.code = localStorage.getItem(CLE_CODE) || "";
+  }
+  function enregistrer() {
+    localStorage.setItem(CLE_DB, JSON.stringify(S.db));
+    planifierEnvoi();
+  }
 
-function majEntete() {
-  const e = DB.entreprises.find(x => x.id === E()) || { nom: "—", type: "entreprise" };
-  $("#ent-nom").textContent = e.nom;
-  $("#ent-type").textContent = e.type === "personnel" ? "Personnel" : "Entreprise";
-}
+  function etat(texte, classe) {
+    var el = document.getElementById("entete-etat");
+    if (!el) return;
+    el.className = "etat " + (classe || "");
+    el.innerHTML = '<i class="pastille"></i> ' + texte;
+  }
 
-/* ---------- vue Accueil ---------- */
-function vueAccueil(v) {
-  const m = mois();
-  const det = dettesNet();
-  const top = topProduits(4);
-  const bas = stockBas();
-  v.innerHTML = `
-    <div class="carte solde">
-      <small>Solde total</small>
-      <b>${fcfa(soldeTotal())}</b>
-      <small>${comptes().length} compte(s) · ${joliMois(m)}</small>
-    </div>
-    <div class="duo">
-      <div class="kpi"><small>Chiffre d'affaires</small><b>${court(caMois())}</b></div>
-      <div class="kpi ok"><small>Bénéfice du mois</small><b>${court(caMois() - depMois())}</b></div>
-      <div class="kpi ko"><small>Dépenses</small><b>${court(depMois())}</b></div>
-      <div class="kpi"><small>Dettes / créances</small><b>${court(det.dois)} / ${court(det.doit)}</b></div>
-    </div>
+  function avis(texte) {
+    var el = document.getElementById("avis");
+    el.textContent = texte;
+    el.hidden = false;
+    clearTimeout(el._t);
+    el._t = setTimeout(function () { el.hidden = true; }, 2600);
+  }
 
-    <div class="section-titre"><h3>Ventes et dépenses</h3><button data-graph>6 mois</button></div>
-    <div class="carte"><canvas class="graph" id="g1"></canvas>
-      <div class="legende"><span><i style="background:var(--ok)"></i>Chiffre d'affaires</span><span><i style="background:var(--ko)"></i>Dépenses</span></div>
-    </div>
+  function notifier(titre, texte) {
+    if (window.Nexus && window.Nexus.notifier) {
+      try { window.Nexus.notifier(titre, texte); } catch (e) {}
+    }
+    avis(texte);
+  }
 
-    <div class="section-titre"><h3>Dernières opérations</h3><button data-voir-ops>Tout voir</button></div>
-    <div class="carte">${ops().slice(0, 5).map(o => ligne(
-      o.type === "revenu" ? "↑" : "↓",
-      o.categorie || (o.type === "revenu" ? "Revenu" : "Dépense"),
-      joliDate(o.date) + (o.note ? " · " + o.note.slice(0, 26) : ""),
-      (o.type === "revenu" ? "+" : "−") + court(o.montant),
-      o.type === "revenu" ? "plus" : "moins")).join("") || `<div class="vide">Aucune opération. Touchez + pour en ajouter une.</div>`}
-    </div>
+  function appeler(charge) {
+    var ctrl = window.AbortController ? new AbortController() : null;
+    var minuteur = setTimeout(function () { if (ctrl) ctrl.abort(); }, 7000);
+    return fetch(SYNC, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(charge),
+      signal: ctrl ? ctrl.signal : undefined
+    }).then(function (r) {
+      clearTimeout(minuteur);
+      if (!r.ok) throw new Error("indisponible");
+      return r.json();
+    }).catch(function (e) { clearTimeout(minuteur); throw e; });
+  }
 
-    <div class="section-titre"><h3>Meilleures ventes</h3><button data-voir-stock>Stock</button></div>
-    <div class="carte">${top.map(t => ligne("▣", t.p.nom, t.vendu + " vendu(s) · marge " + fcfa(margeProduit(t.p)), court(beneficeProduit(t.p)), "plus")).join("") || `<div class="vide">Aucune vente enregistrée.</div>`}</div>
+  function planifierEnvoi() {
+    clearTimeout(S.minuteur);
+    S.minuteur = setTimeout(function () { envoyer(); }, 900);
+  }
 
-    ${bas.length ? `<div class="section-titre"><h3>Stock bas</h3></div><div class="carte">${bas.slice(0, 5).map(p => ligne("!", p.nom, "reste " + (p.qte || 0), `<span class="badge warn">à commander</span>`)).join("")}</div>` : ""}
-  `;
-  dessinerCourbe($("#g1", v), serie6mois());
-  $$("[data-voir-ops]", v).forEach(b => b.onclick = () => aller("operations"));
-  $$("[data-voir-stock]", v).forEach(b => b.onclick = () => aller("stock"));
-  $$("[data-graph]", v).forEach(b => b.onclick = () => { fermer(); bilanMensuel(); });
-}
+  function envoyer() {
+    if (!S.code) return;
+    etat("Envoi…", "attente");
+    appeler({ action: "push", code: S.code, payload: JSON.stringify(S.db), revision: S.revision, entreprise: S.db.entreprise.nom })
+      .then(function (r) {
+        if (r && r.ok) { S.revision = r.revision; S.enLigne = true; etat("Synchronisé", ""); }
+        else { etat("Sur ce téléphone", "hors"); }
+      })
+      .catch(function () { etat("Sur ce téléphone", "hors"); });
+  }
 
-/* ---------- vue Opérations ---------- */
-let filtreOp = "tout";
-function vueOperations(v) {
-  const liste = ops().filter(o => filtreOp === "tout" || o.type === filtreOp);
-  const parMois = {};
-  liste.forEach(o => { (parMois[o.date.slice(0, 7)] = parMois[o.date.slice(0, 7)] || []).push(o); });
-  v.innerHTML = `
-    <div class="titre"><h2>Opérations</h2><small>${liste.length} écriture(s)</small></div>
-    <div class="filtres">
-      ${[["tout", "Tout"], ["revenu", "Revenus"], ["depense", "Dépenses"]].map(([k, n]) =>
-        `<button class="puce ${filtreOp === k ? "on" : ""}" data-f="${k}">${n}</button>`).join("")}
-      <button class="puce" data-prog>Programmées</button>
-    </div>
-    ${Object.keys(parMois).length ? Object.keys(parMois).sort().reverse().map(m => {
-      const tot = parMois[m].reduce((s, o) => s + (o.type === "revenu" ? o.montant : -o.montant), 0);
-      return `<div class="section-titre"><h3>${joliMois(m)}</h3><small style="margin-left:auto;color:${tot >= 0 ? "var(--ok)" : "var(--ko)"}">${tot >= 0 ? "+" : ""}${fcfa(tot)}</small></div>
-        <div class="carte">${parMois[m].map(o => ligne(
-          o.type === "revenu" ? "↑" : "↓",
-          o.categorie || "—",
-          joliDate(o.date) + (o.note ? " · " + o.note.slice(0, 30) : ""),
-          (o.type === "revenu" ? "+" : "−") + court(o.montant),
-          o.type === "revenu" ? "plus" : "moins")).join("")}</div>`;
-    }).join("") : `<div class="vide">Aucune opération pour ce filtre.<br>Touchez + pour commencer.</div>`}
-  `;
-  $$("[data-f]", v).forEach(b => b.onclick = () => { filtreOp = b.dataset.f; rendre(); });
-  $$("[data-prog]", v).forEach(b => b.onclick = programmees);
-}
+  function recevoir() {
+    if (!S.code) return Promise.resolve();
+    return appeler({ action: "pull", code: S.code }).then(function (r) {
+      if (r && r.ok && r.payload) {
+        if ((r.revision || 0) >= S.revision) {
+          try {
+            var distant = JSON.parse(r.payload);
+            if (distant && distant.entreprise) {
+              S.db = distant;
+              S.revision = r.revision || 0;
+              localStorage.setItem(CLE_DB, JSON.stringify(S.db));
+              S.enLigne = true;
+              etat("Synchronisé", "");
+              rendre();
+            }
+          } catch (e) {}
+        }
+      }
+    }).catch(function () { etat("Hors ligne", "hors"); });
+  }
 
-/* ---------- vue Stock ---------- */
-function vueStock(v) {
-  const ps = produits();
-  const valeur = ps.reduce((s, p) => s + (p.achat || 0) * (p.qte || 0), 0);
-  v.innerHTML = `
-    <div class="titre"><h2>Stock</h2><small>${ps.length} produit(s)</small></div>
-    <div class="duo" style="margin-top:0">
-      <div class="kpi"><small>Valeur du stock</small><b>${court(valeur)}</b></div>
-      <div class="kpi ok"><small>Marge potentielle</small><b>${court(ps.reduce((s, p) => s + margeProduit(p) * (p.qte || 0), 0))}</b></div>
-    </div>
-    <div class="section-titre"><h3>Produits</h3><button data-ajout-produit>+ Ajouter</button></div>
-    <div class="carte">
-      ${ps.map(p => `<div class="ligne"><div class="ico">▣</div>
-        <div class="txt"><b>${esc(p.nom)}</b><small>${fcfa(p.achat)} → ${fcfa(p.vente)} · marge ${fcfa(margeProduit(p))}</small></div>
-        <div style="display:flex;gap:6px;align-items:center">
-          <span class="badge ${(p.qte || 0) > 3 ? "ok" : "warn"}">${p.qte || 0}</span>
-          <button class="rond" data-vendre="${p.id}" title="Vendre">₣</button>
-        </div></div>`).join("") || `<div class="vide">Aucun produit.<br>Ajoutez-en ou importez votre catalogue.</div>`}
-    </div>
-    <button class="btn sec" data-import>Importer un catalogue (CSV / JSON)</button>
-  `;
-  $$("[data-ajout-produit]", v).forEach(b => b.onclick = ficheProduit);
-  $$("[data-vendre]", v).forEach(b => b.onclick = () => venteRapide(b.dataset.vendre));
-  $$("[data-import]", v).forEach(b => b.onclick = importCatalogue);
-}
-
-/* ---------- vue Argent ---------- */
-function vueArgent(v) {
-  const det = dettesNet();
-  const salaires = employes().reduce((s, e) => s + (e.salaire || 0), 0);
-  v.innerHTML = `
-    <div class="titre"><h2>Argent</h2><small>${fcfa(soldeTotal())}</small></div>
-    <div class="section-titre"><h3>Comptes</h3><button data-ajout-compte>+ Compte</button></div>
-    <div class="carte">
-      ${comptes().map(c => `<div class="ligne"><div class="ico">${c.type === "banque" ? "🏦" : c.type === "mobile" ? "📱" : "💵"}</div>
-        <div class="txt"><b>${esc(c.nom)}</b><small>${esc(c.type || "caisse")}</small></div>
-        <div class="val">${fcfa(soldeCompte(c))}</div></div>`).join("") || `<div class="vide">Aucun compte.</div>`}
-    </div>
-    <div class="duo">
-      <button class="btn sec" data-transfert style="margin-top:10px">Transfert</button>
-      <button class="btn sec" data-corriger style="margin-top:10px">Corriger solde</button>
-    </div>
-
-    <div class="section-titre"><h3>Dettes et créances</h3><button data-ajout-dette>+ Dette</button></div>
-    <div class="carte">
-      <div class="ligne"><div class="ico">↘</div><div class="txt"><b>Je dois</b><small>à régler</small></div><div class="val moins">${fcfa(det.dois)}</div></div>
-      <div class="ligne"><div class="ico">↗</div><div class="txt"><b>On me doit</b><small>à encaisser</small></div><div class="val plus">${fcfa(det.doit)}</div></div>
-      ${dettes().map(d => {
-        const reste = d.montant - (d.paiements || []).reduce((s, p) => s + p.montant, 0);
-        return `<div class="ligne"><div class="ico">${d.sens === "je_dois" ? "↓" : "↑"}</div>
-          <div class="txt"><b>${esc(d.tiers)}</b><small>échéance ${d.echeance ? joliDate(d.echeance) : "libre"} · reste ${fcfa(reste)}</small></div>
-          <button class="rond" data-payer="${d.id}">₣</button></div>`;
-      }).join("")}
-    </div>
-
-    <div class="section-titre"><h3>Employés</h3><button data-ajout-employe>+ Employé</button></div>
-    <div class="carte">
-      ${employes().map(e => {
-        const paye = (e.paiements || []).includes(mois());
-        return `<div class="ligne"><div class="ico">👤</div>
-          <div class="txt"><b>${esc(e.nom)}</b><small>${esc(e.poste || "")} · ${fcfa(e.salaire)}</small></div>
-          <button class="puce ${paye ? "on" : ""}" data-salaire="${e.id}">${paye ? "payé" : "à payer"}</button></div>`;
-      }).join("") || `<div class="vide">Aucun employé. Total salaires : ${fcfa(salaires)}</div>`}
-    </div>
-  `;
-  $$("[data-ajout-compte]", v).forEach(b => b.onclick = ficheCompte);
-  $$("[data-transfert]", v).forEach(b => b.onclick = transfert);
-  $$("[data-corriger]", v).forEach(b => b.onclick = corrigerSolde);
-  $$("[data-ajout-dette]", v).forEach(b => b.onclick = ficheDette);
-  $$("[data-payer]", v).forEach(b => b.onclick = () => paiementDette(b.dataset.payer));
-  $$("[data-ajout-employe]", v).forEach(b => b.onclick = ficheEmploye);
-  $$("[data-salaire]", v).forEach(b => b.onclick = () => basculerSalaire(b.dataset.salaire));
-}
-
-/* ---------- vue Plus ---------- */
-function vuePlus(v) {
-  v.innerHTML = `
-    <div class="titre"><h2>Plus</h2></div>
-    <div class="carte">
-      ${ligne("👥", "Clients et fournisseurs", tiers().length + " fiche(s)")}
-      ${ligne("🗓", "Agenda", agenda().length + " événement(s)")}
-      ${ligne("📊", "Bilans et archives", "mois, semestre, année")}
-      ${ligne("🧾", "Factures", factures().length + " facture(s)")}
-      ${ligne("🤖", "Assistant", "dépense en langage naturel")}
-      ${ligne("🏢", "Entreprises", DB.entreprises.length + " espace(s)")}
-      ${ligne("⬇", "Sauvegarde et export", "fichier de sécurité")}
-      ${ligne("⚙", "Réglages", "thème, code, réinitialiser")}
-    </div>
-  `;
-  const b = $$(".ligne", v);
-  b[0].onclick = vueTiers; b[1].onclick = vueAgenda; b[2].onclick = vueBilans;
-  b[3].onclick = vueFactures; b[4].onclick = assistant; b[5].onclick = entreprises;
-  b[6].onclick = sauvegarde; b[7].onclick = reglages;
-}
-
-/* ---------- ajout rapide (3 taps) ---------- */
-function ajoutRapide() {
-  ouvrir(`
-    <div class="feuille-tete"><h2>Nouvelle opération</h2><button class="rond" data-fermer>✕</button></div>
-    <div class="choix">
-      <button data-t="revenu"><b>↑</b>Revenu</button>
-      <button data-t="depense"><b>↓</b>Dépense</button>
-      <button data-t="vente"><b>₣</b>Vente</button>
-    </div>`, f => {
-    $$("[data-t]", f).forEach(b => b.onclick = () => {
-      if (b.dataset.t === "vente") return venteRapide();
-      saisieOperation(b.dataset.t);
+  function totalCompte(id) {
+    var c = S.db.comptes.filter(function (x) { return x.id === id; })[0];
+    if (!c) return 0;
+    var s = Number(c.solde) || 0;
+    S.db.operations.forEach(function (o) {
+      if (o.compte !== id) return;
+      if (o.sens === "entree") s += Number(o.montant) || 0;
+      else if (o.sens === "sortie") s -= Number(o.montant) || 0;
     });
-  });
-}
+    return s;
+  }
+  function soldeTotal() {
+    return S.db.comptes.reduce(function (t, c) { return t + totalCompte(c.id); }, 0);
+  }
+  function sommeOps(type, m) {
+    return S.db.operations.filter(function (o) {
+      return o.sens === type && (!m || o.date.slice(0, 7) === m);
+    }).reduce(function (t, o) { return t + (Number(o.montant) || 0); }, 0);
+  }
+  function creances() {
+    return S.db.dettes.filter(function (d) { return d.sens === "on_me_doit"; })
+      .reduce(function (t, d) { return t + resteDette(d); }, 0);
+  }
+  function doit() {
+    return S.db.dettes.filter(function (d) { return d.sens === "je_dois"; })
+      .reduce(function (t, d) { return t + resteDette(d); }, 0);
+  }
+  function resteDette(d) {
+    var paye = (d.paiements || []).reduce(function (t, p) { return t + (Number(p.montant) || 0); }, 0);
+    return Math.max(0, (Number(d.montant) || 0) - paye);
+  }
+  function margeProduit(p) { return (Number(p.vente) || 0) - (Number(p.achat) || 0); }
 
-function saisieOperation(type) {
-  let montant = "";
-  const catsListe = cats(type);
-  let cat = catsListe[0] ? catsListe[0].nom : (type === "revenu" ? "Ventes" : "Dépenses");
-  let compte = comptes()[0] ? comptes()[0].id : null;
+  function vueAccueil() {
+    var m = mois();
+    var ca = sommeOps("entree", m), dep = sommeOps("sortie", m);
+    var benefice = ca - dep;
+    var top = S.db.produits.slice().sort(function (a, b) { return (b.vendus || 0) - (a.vendus || 0); }).slice(0, 3);
+    var alertes = S.db.produits.filter(function (p) { return (Number(p.qte) || 0) <= 3; }).slice(0, 4);
+    var dernieres = S.db.operations.slice().sort(function (a, b) { return b.date.localeCompare(a.date); }).slice(0, 5);
 
-  ouvrir(`
-    <div class="feuille-tete"><h2>${type === "revenu" ? "Revenu" : "Dépense"}</h2><button class="rond" data-fermer>✕</button></div>
-    <div class="grand-montant" id="m">0 F</div>
-    <div class="pave" id="pave"></div>
-    <label class="etq">Catégorie</label>
-    <div class="puces" id="cats">${catsListe.map(c => `<button class="puce ${c.nom === cat ? "on" : ""}" data-c="${esc(c.nom)}">${esc(c.nom)}</button>`).join("")}
-      <button class="puce" data-nouvelle-cat>+ Catégorie</button></div>
-    <label class="etq">Compte</label>
-    <div class="puces" id="comptes">${comptes().map(c => `<button class="puce ${c.id === compte ? "on" : ""}" data-a="${c.id}">${esc(c.nom)}</button>`).join("")}</div>
-    <input class="saisie" id="note" placeholder="Justification (facultatif)" style="margin-top:14px">
-    <input class="saisie" id="date" type="date" value="${jour()}">
-    <button class="btn" id="valider">Enregistrer</button>
-  `, f => {
-    const aff = () => ($("#m", f).textContent = fcfa(+montant || 0));
-    const pave = $("#pave", f);
-    ["1","2","3","4","5","6","7","8","9","000","0","⌫"].forEach(t => {
-      const b = document.createElement("button");
-      b.textContent = t;
-      b.onclick = () => {
-        if (t === "⌫") montant = montant.slice(0, -1);
-        else montant = (montant + t).replace(/^0+(?=\d)/, "").slice(0, 9);
-        aff();
-      };
-      pave.appendChild(b);
+    var h = "";
+    h += '<div class="solde"><small>Solde total</small><b>' + fcfa(soldeTotal()) + "</b>";
+    h += '<div class="ligne"><div><span>Recettes</span><i class="vert">' + fcfa(ca) + "</i></div>";
+    h += '<div><span>Dépenses</span><i class="rouge">' + fcfa(dep) + "</i></div>";
+    h += "<div><span>Bénéfice</span><i>" + fcfa(benefice) + "</i></div></div></div>";
+
+    h += '<div class="duo">';
+    h += '<div class="mini"><span>On me doit</span><b>' + fcfa(creances()) + "</b></div>";
+    h += '<div class="mini"><span>Je dois</span><b>' + fcfa(doit()) + "</b></div>";
+    h += "</div>";
+
+    h += '<div class="bloc" style="margin-top:14px"><div class="bloc-titre"><h2>' + moisLisible(m) + "</h2><small>" + S.db.operations.filter(function (o) { return o.date.slice(0, 7) === m; }).length + " écritures</small></div>";
+    h += '<div class="liste">';
+    if (!dernieres.length) h += '<p class="vide">Aucune écriture. Touchez le bouton doré pour commencer.</p>';
+    dernieres.forEach(function (o) {
+      h += ligneOperation(o);
     });
-    $$("[data-c]", f).forEach(b => b.onclick = () => {
-      cat = b.dataset.c; $$("[data-c]", f).forEach(x => x.classList.toggle("on", x === b));
-    });
-    $$("[data-a]", f).forEach(b => b.onclick = () => {
-      compte = b.dataset.a; $$("[data-a]", f).forEach(x => x.classList.toggle("on", x === b));
-    });
-    $$("[data-nouvelle-cat]", f).forEach(b => b.onclick = () => nouvelleCategorie(type, nom => {
-      cat = nom; saisieOperation(type);
-    }));
-    $("#valider", f).onclick = () => {
-      const v = +montant;
-      if (!v) return toast("Entrez un montant");
-      DB.operations.push({
-        id: uid(), ent: E(), type, montant: v, categorie: cat, compte,
-        date: $("#date", f).value || jour(), note: $("#note", f).value.trim(), cree: Date.now()
+    h += "</div></div>";
+
+    if (alertes.length) {
+      h += '<div class="bloc"><div class="bloc-titre"><h2>Stock à surveiller</h2><small>' + alertes.length + "</small></div><div class=\"liste\">";
+      alertes.forEach(function (p) {
+        h += '<div class="ligne-op"><span class="puce neutre">' + ico("stock") + '</span><div class="txt"><strong>' + esc(p.nom) + "</strong><span>" + (Number(p.qte) || 0) + " en stock</span></div>";
+        h += '<span class="badge ko">Réassort</span></div>';
       });
-      sauver(); fermer(); toast("Enregistré : " + fcfa(v)); rendre();
-    };
-  });
-}
+      h += "</div></div>";
+    }
 
-function nouvelleCategorie(type, apres) {
-  const nom = prompt("Nom de la catégorie");
-  if (!nom) return;
-  DB.categories.push({ id: uid(), ent: E(), nom: nom.trim(), type });
-  sauver(); toast("Catégorie ajoutée");
-  if (apres) apres(nom.trim()); else rendre();
-}
-
-/* ---------- ventes et produits ---------- */
-function venteRapide(produitId) {
-  const ps = produits();
-  if (!ps.length) return ficheProduit();
-  const p = produitId ? ps.find(x => x.id === produitId) : null;
-  if (p) return confirmerVente(p);
-
-  ouvrir(`<div class="feuille-tete"><h2>Vente rapide</h2><button class="rond" data-fermer>✕</button></div>
-    <div class="carte">${ps.map(x => ligne("▣", x.nom, fcfa(x.vente) + " · reste " + (x.qte || 0), "▸")).join("")}</div>`,
-    f => $$(".ligne", f).forEach((el, i) => el.onclick = () => confirmerVente(ps[i])));
-}
-
-function confirmerVente(p) {
-  let qte = 1;
-  ouvrir(`<div class="feuille-tete"><h2>${esc(p.nom)}</h2><button class="rond" data-fermer>✕</button></div>
-    <div class="grand-montant">${fcfa(p.vente)}</div>
-    <div class="row2">
-      <button class="btn sec" id="moins">−</button>
-      <button class="btn sec" id="plus">+</button>
-    </div>
-    <p class="centre mini" style="margin:12px 0">Quantité : <b id="q">1</b> · total <b id="tot">${fcfa(p.vente)}</b></p>
-    <p class="centre mini">Marge sur cette vente : <b style="color:var(--ok)" id="mg">${fcfa(margeProduit(p))}</b></p>
-    <button class="btn" id="ok">Valider la vente</button>`, f => {
-    const maj = () => {
-      $("#q", f).textContent = qte;
-      $("#tot", f).textContent = fcfa(qte * p.vente);
-      $("#mg", f).textContent = fcfa(qte * margeProduit(p));
-    };
-    $("#moins", f).onclick = () => { qte = clamp(qte - 1, 1, 99); maj(); };
-    $("#plus", f).onclick = () => { qte = clamp(qte + 1, 1, 99); maj(); };
-    $("#ok", f).onclick = () => {
-      const compte = comptes()[0] ? comptes()[0].id : null;
-      DB.mouvements.push({ id: uid(), ent: E(), produit: p.id, type: "vente", qte, date: jour(), prix: p.vente });
-      DB.operations.push({ id: uid(), ent: E(), type: "revenu", montant: qte * p.vente, categorie: "Ventes", compte, date: jour(), note: "Vente " + p.nom, cree: Date.now() });
-      const prod = DB.produits.find(x => x.id === p.id);
-      prod.qte = Math.max(0, (prod.qte || 0) - qte);
-      sauver(); fermer(); toast("Vente enregistrée"); rendre();
-    };
-  });
-}
-
-function ficheProduit() {
-  ouvrir(`<div class="feuille-tete"><h2>Nouveau produit</h2><button class="rond" data-fermer>✕</button></div>
-    <label class="etq">Nom</label><input class="saisie" id="nom" placeholder="Ex. Crocs">
-    <div class="row2"><div><label class="etq">Prix d'achat</label><input class="saisie" id="achat" type="number" inputmode="numeric" placeholder="5000"></div>
-    <div><label class="etq">Prix de vente</label><input class="saisie" id="vente" type="number" inputmode="numeric" placeholder="8500"></div></div>
-    <div class="row2"><div><label class="etq">Quantité</label><input class="saisie" id="qte" type="number" inputmode="numeric" value="0"></div>
-    <div><label class="etq">Seuil d'alerte</label><input class="saisie" id="seuil" type="number" inputmode="numeric" value="3"></div></div>
-    <label class="etq">Fournisseur</label><input class="saisie" id="four" placeholder="Facultatif">
-    <label class="etq">Précommande</label>
-    <div class="puces"><button class="puce" id="pre">Non</button></div>
-    <p class="mini" id="marge" style="margin-top:12px">Marge : —</p>
-    <button class="btn" id="ok">Enregistrer</button>`, f => {
-    let pre = false;
-    const maj = () => {
-      const m = (+$("#vente", f).value || 0) - (+$("#achat", f).value || 0);
-      $("#marge", f).innerHTML = "Marge : <b style='color:var(--ok)'>" + fcfa(m) + "</b> par unité";
-    };
-    ["#vente", "#achat"].forEach(s => $(s, f).oninput = maj);
-    $("#pre", f).onclick = e => { pre = !pre; e.target.classList.toggle("on", pre); e.target.textContent = pre ? "Oui" : "Non"; };
-    $("#ok", f).onclick = () => {
-      const nom = $("#nom", f).value.trim();
-      if (!nom) return toast("Nom obligatoire");
-      DB.produits.push({
-        id: uid(), ent: E(), nom, achat: +$("#achat", f).value || 0, vente: +$("#vente", f).value || 0,
-        qte: +$("#qte", f).value || 0, seuil: +$("#seuil", f).value || 3,
-        fournisseur: $("#four", f).value.trim(), precommande: pre
+    if (top.length) {
+      h += '<div class="bloc"><div class="bloc-titre"><h2>Meilleures ventes</h2><small>marge</small></div><div class="liste">';
+      top.forEach(function (p) {
+        h += '<div class="ligne-op"><span class="puce neutre">' + ico("panier") + '</span><div class="txt"><strong>' + esc(p.nom) + "</strong><span>" + (p.vendus || 0) + " vendus</span></div>";
+        h += '<span class="montant">' + fcfa(margeProduit(p)) + "</span></div>";
       });
-      sauver(); fermer(); toast("Produit ajouté"); rendre();
-    };
-  });
-}
+      h += "</div></div>";
+    }
+    return h;
+  }
 
-function importCatalogue() {
-  ouvrir(`<div class="feuille-tete"><h2>Importer</h2><button class="rond" data-fermer>✕</button></div>
-    <p class="mini">Collez un JSON ou un CSV (nom;prix_achat;prix_vente;quantite). Une ligne par produit.</p>
-    <textarea class="saisie" id="txt" placeholder="nom,prix_achat,prix_vente,quantite&#10;Crocs,5000,8500,12"></textarea>
-    <button class="btn sec" id="fichier">Choisir un fichier</button>
-    <input type="file" id="file" accept=".json,.csv,text/*" hidden>
-    <button class="btn" id="ok">Importer</button>`, f => {
-    const traiter = txt => {
-      let n = 0;
-      txt = txt.trim();
-      if (!txt) return;
-      if (txt.startsWith("[") || txt.startsWith("{")) {
-        let data = JSON.parse(txt);
-        const liste = Array.isArray(data) ? data : (data.produits || data.products || []);
-        liste.forEach(p => {
-          const nom = p.nom || p.name || p.title;
-          if (!nom) return;
-          DB.produits.push({
-            id: uid(), ent: E(), nom,
-            achat: +(p.achat || p.prix_achat || p.cost || 0), vente: +(p.vente || p.prix || p.price || 0),
-            qte: +(p.qte || p.stock || p.quantite || 0), seuil: 3, fournisseur: p.fournisseur || "", precommande: false
-          });
+  function ligneOperation(o) {
+    var entre = o.sens === "entree";
+    var c = S.db.comptes.filter(function (x) { return x.id === o.compte; })[0];
+    var signe = entre ? "+" : "−";
+    return '<div class="ligne-op"><span class="puce ' + (entre ? "entree" : "sortie") + '">' + ico(entre ? "entree" : "sortie") + "</span>" +
+      '<div class="txt"><strong>' + esc(o.libelle || (o.categorie || "Écriture")) + "</strong><span>" + esc(o.categorie || "") + (c ? " · " + esc(c.nom) : "") + " · " + o.date.split("-").reverse().join("/") + "</span></div>" +
+      '<span class="montant ' + (entre ? "vert" : "rouge") + '">' + signe + " " + fcfa(o.montant) + "</span></div>";
+  }
+
+  function vueEcritures() {
+    var ops = S.db.operations.slice().sort(function (a, b) { return b.date.localeCompare(a.date); });
+    if (S.filtre !== "tout") ops = ops.filter(function (o) { return o.sens === S.filtre; });
+    var h = '<div class="onglets">';
+    [["tout", "Tout"], ["entree", "Recettes"], ["sortie", "Dépenses"]].forEach(function (f) {
+      h += '<button data-act="filtre" data-v="' + f[0] + '" class="' + (S.filtre === f[0] ? "actif" : "") + '">' + f[1] + "</button>";
+    });
+    h += "</div>";
+    h += '<div class="bloc"><div class="liste">';
+    if (!ops.length) h += '<p class="vide">Aucune écriture pour ce filtre.</p>';
+    ops.slice(0, 120).forEach(function (o) { h += ligneOperation(o); });
+    h += "</div></div>";
+    return h;
+  }
+
+  function vueStock() {
+    var h = '<div class="bloc"><div class="bloc-titre"><h2>Produits</h2><small>' + S.db.produits.length + "</small></div>";
+    h += '<button class="second" data-act="nouveau-produit">Ajouter un produit</button>';
+    h += '<div class="liste" style="margin-top:12px">';
+    if (!S.db.produits.length) h += '<p class="vide">Aucun produit. Ajoutez votre premier article.</p>';
+    S.db.produits.forEach(function (p) {
+      h += '<div class="ligne-op"><span class="puce neutre">' + ico("stock") + '</span><div class="txt"><strong>' + esc(p.nom) + "</strong><span>" + fcfa(p.vente) + " · marge " + fcfa(margeProduit(p)) + " · " + (Number(p.qte) || 0) + " en stock</span></div>";
+      h += '<button class="badge ok" data-act="vendre" data-id="' + p.id + '">Vendre</button></div>';
+    });
+    h += "</div></div>";
+    return h;
+  }
+
+  function vueArgent() {
+    var h = '<div class="bloc"><div class="bloc-titre"><h2>Comptes</h2><small>' + fcfa(soldeTotal()) + "</small></div><div class=\"liste\">";
+    S.db.comptes.forEach(function (c) {
+      h += '<div class="ligne-op"><span class="puce neutre">' + ico("argent") + '</span><div class="txt"><strong>' + esc(c.nom) + "</strong><span>" + esc(c.type) + "</span></div>";
+      h += '<span class="montant">' + fcfa(totalCompte(c.id)) + "</span></div>";
+    });
+    h += "</div>";
+    h += '<div class="rangee" style="margin-top:12px"><button class="second" data-act="transfert">Transfert</button><button class="second" data-act="nouveau-compte">Nouveau compte</button></div>';
+    h += "</div>";
+
+    h += '<div class="bloc"><div class="bloc-titre"><h2>Dettes et créances</h2><small>' + S.db.dettes.length + "</small></div><div class=\"liste\">";
+    if (!S.db.dettes.length) h += '<p class="vide">Aucune dette enregistrée.</p>';
+    S.db.dettes.forEach(function (d) {
+      var reste = resteDette(d);
+      h += '<div class="ligne-op"><span class="puce ' + (d.sens === "on_me_doit" ? "entree" : "sortie") + '">' + ico("dettes") + '</span><div class="txt"><strong>' + esc(d.tiers) + "</strong><span>" + (d.sens === "on_me_doit" ? "On me doit" : "Je dois") + (d.echeance ? " · " + d.echeance.split("-").reverse().join("/") : "") + "</span></div>";
+      h += '<span class="montant">' + fcfa(reste) + "</span>";
+      if (reste > 0) h += ' <button class="badge" data-act="payer-dette" data-id="' + d.id + '">Payer</button>';
+      h += "</div>";
+    });
+    h += "</div>";
+    h += '<button class="second" style="margin-top:12px" data-act="nouvelle-dette">Ajouter une dette</button></div>';
+    return h;
+  }
+
+  function vueTout() {
+    var cases = [
+      ["journal", "Journal comptable", "Toutes les écritures datées", "livre"],
+      ["balance", "Balance", "Comptes et soldes", "balance"],
+      ["tva", "TVA", "Collectée et déductible", "tva"],
+      ["bilans", "Bilans", "Mois, semestre, année", "graphique"],
+      ["factures", "Factures", "Créer et exporter en PDF", "facture"],
+      ["clients", "Clients et fournisseurs", "Fiches et historique", "utilisateurs"],
+      ["employes", "Employés", "Postes et salaires", "employes"],
+      ["agenda", "Agenda", "Échéances et rendez-vous", "agenda"],
+      ["import", "Importer un catalogue", "CSV, JSON ou copier-coller", "import"],
+      ["sauvegarde", "Sauvegarde", "Exporter et restaurer", "sauvegarde"],
+      ["reglages", "Réglages", "Clé, entreprise, apparence", "reglages"]
+    ];
+    var h = '<div class="grille">';
+    cases.forEach(function (c) {
+      h += '<button class="case" data-act="page" data-v="' + c[0] + '">' + ico(c[3]) + "<strong>" + c[1] + "</strong><span>" + c[2] + "</span></button>";
+    });
+    h += "</div>";
+    return h;
+  }
+
+  function vuePage(nom) {
+    var h = '<button class="second" style="margin-bottom:14px" data-act="retour">← Retour</button>';
+    if (nom === "journal") {
+      var ops = S.db.operations.slice().sort(function (a, b) { return a.date.localeCompare(b.date); });
+      h += '<div class="bloc"><div class="bloc-titre"><h2>Journal</h2><small>' + ops.length + "</small></div>";
+      h += "<table><tr><th>Date</th><th>Libellé</th><th>Débit</th><th>Crédit</th></tr>";
+      ops.slice(-80).reverse().forEach(function (o) {
+        h += "<tr><td>" + o.date.split("-").reverse().join("/") + "</td><td>" + esc(o.libelle || o.categorie) + "</td>";
+        h += '<td class="d">' + (o.sens === "sortie" ? fcfa(o.montant) : "") + '</td><td class="d">' + (o.sens === "entree" ? fcfa(o.montant) : "") + "</td></tr>";
+      });
+      h += "</table></div>";
+      return h;
+    }
+    if (nom === "balance") {
+      h += '<div class="bloc"><div class="bloc-titre"><h2>Balance générale</h2></div><table><tr><th>Compte</th><th>Solde</th></tr>';
+      S.db.comptes.forEach(function (c) { h += "<tr><td>" + esc(c.nom) + '</td><td class="d">' + fcfa(totalCompte(c.id)) + "</td></tr>"; });
+      h += '<tr><td><strong>Total</strong></td><td class="d"><strong>' + fcfa(soldeTotal()) + "</strong></td></tr></table></div>";
+      return h;
+    }
+    if (nom === "tva") {
+      var collectee = Math.round(sommeOps("entree") * 0.18);
+      var deductible = Math.round(sommeOps("sortie") * 0.18);
+      h += '<div class="bloc"><div class="bloc-titre"><h2>TVA 18 %</h2><small>estimation</small></div>';
+      h += '<div class="duo"><div class="mini"><span>Collectée</span><b>' + fcfa(collectee) + '</b></div><div class="mini"><span>Déductible</span><b>' + fcfa(deductible) + "</b></div></div>";
+      h += '<p class="sous" style="margin-top:14px">À payer : <strong>' + fcfa(Math.max(0, collectee - deductible)) + "</strong></p></div>";
+      return h;
+    }
+    if (nom === "bilans") {
+      var parMois = {};
+      S.db.operations.forEach(function (o) {
+        var k = o.date.slice(0, 7);
+        parMois[k] = parMois[k] || { e: 0, s: 0 };
+        if (o.sens === "entree") parMois[k].e += Number(o.montant) || 0; else parMois[k].s += Number(o.montant) || 0;
+      });
+      var cles = Object.keys(parMois).sort().reverse().slice(0, 12);
+      h += '<div class="bloc"><div class="bloc-titre"><h2>Bilans mensuels</h2></div><table><tr><th>Mois</th><th>Recettes</th><th>Dépenses</th><th>Bénéfice</th></tr>';
+      cles.forEach(function (k) {
+        var v = parMois[k];
+        h += "<tr><td>" + moisLisible(k) + '</td><td class="d">' + fcfa(v.e) + '</td><td class="d">' + fcfa(v.s) + '</td><td class="d">' + fcfa(v.e - v.s) + "</td></tr>";
+      });
+      if (!cles.length) h += '<tr><td colspan="4" class="vide">Aucune donnée.</td></tr>';
+      h += "</table></div>";
+      return h;
+    }
+    if (nom === "factures") {
+      h += '<div class="bloc"><div class="bloc-titre"><h2>Factures</h2><small>' + S.db.factures.length + "</small></div>";
+      h += '<button class="second" data-act="nouvelle-facture">Nouvelle facture</button><div class="liste" style="margin-top:12px">';
+      if (!S.db.factures.length) h += '<p class="vide">Aucune facture.</p>';
+      S.db.factures.forEach(function (f) {
+        h += '<div class="ligne-op"><span class="puce neutre">' + ico("facture") + '</span><div class="txt"><strong>' + esc(f.numero) + "</strong><span>" + esc(f.client || "Client") + " · " + f.date.split("-").reverse().join("/") + "</span></div>";
+        h += '<span class="montant">' + fcfa(f.total) + "</span></div>";
+        h += '<button class="badge" data-act="pdf-facture" data-id="' + f.id + '">PDF</button></div>';
+      });
+      h += "</div></div>";
+      return h;
+    }
+    if (nom === "clients") {
+      h += '<div class="bloc"><div class="bloc-titre"><h2>Clients et fournisseurs</h2><small>' + S.db.clients.length + "</small></div>";
+      h += '<button class="second" data-act="nouveau-client">Ajouter une fiche</button><div class="liste" style="margin-top:12px">';
+      if (!S.db.clients.length) h += '<p class="vide">Aucune fiche.</p>';
+      S.db.clients.forEach(function (c) {
+        h += '<div class="ligne-op"><span class="puce neutre">' + ico("utilisateurs") + '</span><div class="txt"><strong>' + esc(c.nom) + "</strong><span>" + esc(c.type || "client") + (c.tel ? " · " + esc(c.tel) : "") + "</span></div></div>";
+      });
+      h += "</div></div>";
+      return h;
+    }
+    if (nom === "employes") {
+      h += '<div class="bloc"><div class="bloc-titre"><h2>Employés</h2><small>' + S.db.employes.length + "</small></div>";
+      h += '<button class="second" data-act="nouvel-employe">Ajouter un employé</button><div class="liste" style="margin-top:12px">';
+      if (!S.db.employes.length) h += '<p class="vide">Aucun employé.</p>';
+      S.db.employes.forEach(function (e) {
+        h += '<div class="ligne-op"><span class="puce neutre">' + ico("employes") + '</span><div class="txt"><strong>' + esc(e.nom) + "</strong><span>" + esc(e.poste || "") + "</span></div>";
+        h += '<span class="montant">' + fcfa(e.salaire) + "</span></div>";
+      });
+      h += "</div></div>";
+      return h;
+    }
+    if (nom === "agenda") {
+      h += '<div class="bloc"><div class="bloc-titre"><h2>Agenda</h2><small>' + S.db.agenda.length + "</small></div>";
+      h += '<button class="second" data-act="nouvel-evenement">Ajouter un événement</button><div class="liste" style="margin-top:12px">';
+      if (!S.db.agenda.length) h += '<p class="vide">Aucun événement.</p>';
+      S.db.agenda.slice().sort(function (a, b) { return a.date.localeCompare(b.date); }).forEach(function (e) {
+        h += '<div class="ligne-op"><span class="puce neutre">' + ico("agenda") + '</span><div class="txt"><strong>' + esc(e.titre) + "</strong><span>" + e.date.split("-").reverse().join("/") + "</span></div></div>";
+      });
+      h += "</div></div>";
+      return h;
+    }
+    if (nom === "import") {
+      h += '<div class="bloc"><div class="bloc-titre"><h2>Importer un catalogue</h2></div>';
+      h += '<p class="sous">Collez des lignes au format nom;prix_achat;prix_vente;quantite, ou importez un fichier CSV ou JSON.</p>';
+      h += '<textarea id="zone-import" class="champ" style="height:150px;padding:12px"></textarea>';
+      h += '<button class="principal" data-act="importer-texte">Importer le texte</button>';
+      h += '<button class="second" data-act="importer-fichier">Choisir un fichier</button>';
+      h += '<input type="file" id="fichier-import" accept=".csv,.json,text/csv,application/json" hidden>';
+      h += "</div>";
+      return h;
+    }
+    if (nom === "sauvegarde") {
+      h += '<div class="bloc"><div class="bloc-titre"><h2>Sauvegarde</h2></div>';
+      h += '<p class="sous">Vos données restent sur le téléphone et sont synchronisées avec la clé d\'accès.</p>';
+      h += '<button class="principal" data-act="exporter-json">Exporter toutes les données</button>';
+      h += '<button class="second" data-act="exporter-csv">Exporter en CSV</button>';
+      h += '<button class="second" data-act="restaurer">Restaurer une sauvegarde</button>';
+      h += '<input type="file" id="fichier-restauration" accept=".json,application/json" hidden>';
+      h += "</div>";
+      return h;
+    }
+    if (nom === "reglages") {
+      h += '<div class="bloc"><div class="bloc-titre"><h2>Réglages</h2></div>';
+      h += '<label class="etiquette">Nom de l\'entreprise</label><input id="reg-nom" class="champ" value="' + esc(S.db.entreprise.nom) + '">';
+      h += '<button class="principal" data-act="enregistrer-nom">Enregistrer le nom</button>';
+      h += "</div>";
+      h += '<div class="bloc"><div class="bloc-titre"><h2>Clé d\'accès</h2></div>';
+      h += '<p class="sous">Clé actuelle : <strong>' + esc(S.code) + "</strong></p>";
+      h += '<input id="reg-cle" class="champ" placeholder="Nouvelle clé (6 caractères minimum)">';
+      h += '<button class="principal" data-act="changer-cle">Changer la clé</button>';
+      h += '<button class="second" data-act="verrouiller">Verrouiller l\'application</button>';
+      h += "</div>";
+      h += '<div class="bloc"><div class="bloc-titre"><h2>Transmettre les données</h2></div>';
+      h += '<p class="sous">Copiez ce code et collez-le sur un autre téléphone pour y retrouver toutes les écritures.</p>';
+      h += '<button class="principal" data-act="copier-code">Copier le code de données</button>';
+      h += '<textarea id="zone-code" class="champ" style="height:110px;margin-top:10px;padding:10px" placeholder="Collez ici un code reçu"></textarea>';
+      h += '<button class="second" data-act="charger-code">Charger ce code</button>';
+      h += "</div>";
+      return h;
+    }
+    return "";
+  }
+
+  function rendre() {
+    var vue = document.getElementById("vue");
+    if (!vue) return;
+    if (S.onglet === "accueil") vue.innerHTML = vueAccueil();
+    else if (S.onglet === "ecritures") vue.innerHTML = vueEcritures();
+    else if (S.onglet === "stock") vue.innerHTML = vueStock();
+    else if (S.onglet === "argent") vue.innerHTML = vueArgent();
+    else if (S.onglet === "tout") vue.innerHTML = vueTout();
+    else vue.innerHTML = vuePage(S.onglet);
+    var nom = document.getElementById("entete-nom");
+    if (nom) nom.textContent = S.db.entreprise.nom;
+  }
+
+  function ouvrirFeuille(html) {
+    var f = document.getElementById("feuille");
+    document.getElementById("feuille-panneau").innerHTML = html;
+    f.hidden = false;
+  }
+  function fermerFeuille() { document.getElementById("feuille").hidden = true; }
+
+  var saisie = { sens: "sortie", montant: "0", libelle: "", categorie: "", compte: "" };
+
+  function feuilleNouveau() {
+    var h = '<h2>Nouvelle écriture</h2><p class="sous">Choisissez le type, saisissez le montant, validez.</p>';
+    h += '<div class="choix">';
+    h += '<button data-act="type" data-v="entree">' + ico("entree") + "<strong>Recette</strong><span>Argent reçu</span></button>";
+    h += '<button data-act="type" data-v="sortie">' + ico("sortie") + "<strong>Dépense</strong><span>Argent sorti</span></button>";
+    h += '<button data-act="type" data-v="vente">' + ico("panier") + "<strong>Vente</strong><span>Produit vendu</span></button>";
+    h += '<button data-act="type" data-v="transfert">' + ico("echange") + "<strong>Transfert</strong><span>Entre comptes</span></button>";
+    h += "</div>";
+    ouvrirFeuille(h);
+  }
+
+  function feuilleMontant() {
+    if (saisie.sens === "transfert") return feuilleTransfert();
+    var titres = { entree: "Recette", sortie: "Dépense", vente: "Vente" };
+    var h = '<h2>' + titres[saisie.sens] + "</h2>";
+    h += '<div class="montant" id="montant-vu">' + (Number(saisie.montant) || 0).toLocaleString("fr-FR") + " <small>FCFA</small></div>";
+    h += '<div class="pave">';
+    ["1", "2", "3", "4", "5", "6", "7", "8", "9", "00", "0", "←"].forEach(function (t) {
+      h += '<button data-act="chiffre" data-v="' + t + '">' + t + "</button>";
+    });
+    h += "</div>";
+    h += '<input id="libelle" class="champ" placeholder="Libellé (ex. vente Crocs)" value="' + esc(saisie.libelle) + '">';
+    h += '<select id="categorie" class="champ">' + S.db.categories.filter(function (c) { return c.sens === saisie.sens || saisie.sens === "vente"; }).map(function (c) {
+      return '<option value="' + esc(c.nom) + '">' + esc(c.nom) + "</option>";
+    }).join("") + "</select>";
+    h += '<select id="compte" class="champ">' + S.db.comptes.map(function (c) {
+      return '<option value="' + c.id + '">' + esc(c.nom) + "</option>";
+    }).join("") + "</select>";
+    h += '<button class="principal" data-act="valider">Valider l\'écriture</button>';
+    ouvrirFeuille(h);
+  }
+
+  function feuilleTransfert() {
+    var h = '<h2>Transfert</h2><p class="sous">Déplacer de l\'argent entre deux comptes.</p>';
+    h += '<div class="montant">' + (Number(saisie.montant) || 0).toLocaleString("fr-FR") + " <small>FCFA</small></div>";
+    h += '<div class="pave">';
+    ["1", "2", "3", "4", "5", "6", "7", "8", "9", "00", "0", "←"].forEach(function (t) {
+      h += '<button data-act="chiffre" data-v="' + t + '">' + t + "</button>";
+    });
+    h += "</div>";
+    h += '<select id="compte" class="champ">' + S.db.comptes.map(function (c) {
+      return '<option value="' + c.id + '">Depuis ' + esc(c.nom) + "</option>";
+    }).join("") + "</select>";
+    h += '<select id="compte2" class="champ">' + S.db.comptes.map(function (c) {
+      return '<option value="' + c.id + '">Vers ' + esc(c.nom) + "</option>";
+    }).join("") + "</select>";
+    h += '<button class="principal" data-act="valider-transfert">Valider le transfert</button>';
+    ouvrirFeuille(h);
+  }
+
+  function ajouterOperation(sens, montant, libelle, categorie, compte) {
+    var m = Number(montant) || 0;
+    if (m <= 0) { avis("Saisissez un montant."); return; }
+    S.db.operations.push({ id: uid(), sens: sens, montant: m, libelle: libelle || "", categorie: categorie || "", compte: compte || (S.db.comptes[0] || {}).id, date: jour(), auteur: "moi" });
+    enregistrer();
+    fermerFeuille();
+    rendre();
+    notifier("Écriture enregistrée", (sens === "entree" ? "Recette" : "Dépense") + " de " + fcfa(m) + " enregistrée.");
+  }
+
+  var actions = {
+    filtre: function (d) { S.filtre = d.v; rendre(); },
+    page: function (d) { S.onglet = d.v; rendre(); window.scrollTo(0, 0); },
+    retour: function () { S.onglet = "tout"; rendre(); },
+    type: function (d) { saisie.sens = d.v; saisie.montant = "0"; feuilleMontant(); },
+    chiffre: function (d) {
+      var v = d.v;
+      if (v === "←") saisie.montant = saisie.montant.slice(0, -1) || "0";
+      else if (saisie.montant === "0") saisie.montant = v === "00" ? "0" : v;
+      else saisie.montant += v;
+      if (saisie.montant.length > 9) saisie.montant = saisie.montant.slice(0, 9);
+      var vu = document.getElementById("montant-vu");
+      if (vu) vu.innerHTML = (Number(saisie.montant) || 0).toLocaleString("fr-FR") + " <small>FCFA</small>";
+    },
+    valider: function () {
+      var lib = (document.getElementById("libelle") || {}).value || "";
+      var cat = (document.getElementById("categorie") || {}).value || "";
+      var cpt = (document.getElementById("compte") || {}).value || "";
+      ajouterOperation(saisie.sens === "vente" ? "entree" : saisie.sens, saisie.montant, lib || (saisie.sens === "vente" ? "Vente" : ""), cat, cpt);
+    },
+    "valider-transfert": function () {
+      var a = (document.getElementById("compte") || {}).value;
+      var b = (document.getElementById("compte2") || {}).value;
+      var m = Number(saisie.montant) || 0;
+      if (!a || !b || a === b) { avis("Choisissez deux comptes différents."); return; }
+      if (m <= 0) { avis("Saisissez un montant."); return; }
+      S.db.operations.push({ id: uid(), sens: "sortie", montant: m, libelle: "Transfert sortant", categorie: "Transfert", compte: a, date: jour() });
+      S.db.operations.push({ id: uid(), sens: "entree", montant: m, libelle: "Transfert entrant", categorie: "Transfert", compte: b, date: jour() });
+      enregistrer(); fermerFeuille(); rendre();
+      notifier("Transfert effectué", fcfa(m) + " déplacés.");
+    },
+    vendre: function (d) {
+      var p = S.db.produits.filter(function (x) { return x.id === d.id; })[0];
+      if (!p) return;
+      if ((Number(p.qte) || 0) <= 0) { avis("Stock épuisé pour " + p.nom + "."); return; }
+      p.qte = Number(p.qte) - 1;
+      p.vendus = (Number(p.vendus) || 0) + 1;
+      S.db.operations.push({ id: uid(), sens: "entree", montant: Number(p.vente) || 0, libelle: "Vente " + p.nom, categorie: "Ventes", compte: (S.db.comptes[0] || {}).id, date: jour() });
+      enregistrer(); rendre();
+      notifier("Vente enregistrée", p.nom + " · " + fcfa(p.vente) + " · marge " + fcfa(margeProduit(p)));
+    },
+    "nouveau-produit": function () {
+      ouvrirFeuille('<h2>Nouveau produit</h2><p class="sous">Prix d\'achat et prix de vente.</p>' +
+        '<input id="p-nom" class="champ" placeholder="Nom du produit">' +
+        '<div class="rangee"><input id="p-achat" class="champ" inputmode="numeric" placeholder="Prix d\'achat"><input id="p-vente" class="champ" inputmode="numeric" placeholder="Prix de vente"></div>' +
+        '<input id="p-qte" class="champ" inputmode="numeric" placeholder="Quantité en stock">' +
+        '<input id="p-four" class="champ" placeholder="Fournisseur (optionnel)">' +
+        '<button class="principal" data-act="creer-produit">Enregistrer le produit</button>');
+    },
+    "creer-produit": function () {
+      var nom = (document.getElementById("p-nom") || {}).value || "";
+      if (!nom.trim()) { avis("Donnez un nom au produit."); return; }
+      S.db.produits.push({
+        id: uid(), nom: nom.trim(),
+        achat: Number((document.getElementById("p-achat") || {}).value) || 0,
+        vente: Number((document.getElementById("p-vente") || {}).value) || 0,
+        qte: Number((document.getElementById("p-qte") || {}).value) || 0,
+        fournisseur: (document.getElementById("p-four") || {}).value || "",
+        vendus: 0
+      });
+      enregistrer(); fermerFeuille(); rendre();
+      notifier("Produit ajouté", nom.trim() + " est dans le stock.");
+    },
+    transfert: function () { saisie.sens = "transfert"; saisie.montant = "0"; feuilleTransfert(); },
+    "nouveau-compte": function () {
+      ouvrirFeuille('<h2>Nouveau compte</h2><input id="c-nom" class="champ" placeholder="Nom du compte"><input id="c-solde" class="champ" inputmode="numeric" placeholder="Solde de départ"><button class="principal" data-act="creer-compte">Créer le compte</button>');
+    },
+    "creer-compte": function () {
+      var nom = (document.getElementById("c-nom") || {}).value || "";
+      if (!nom.trim()) { avis("Donnez un nom au compte."); return; }
+      S.db.comptes.push({ id: uid(), nom: nom.trim(), type: "autre", solde: Number((document.getElementById("c-solde") || {}).value) || 0 });
+      enregistrer(); fermerFeuille(); rendre();
+    },
+    "nouvelle-dette": function () {
+      ouvrirFeuille('<h2>Nouvelle dette</h2><input id="d-tiers" class="champ" placeholder="Nom de la personne ou entreprise">' +
+        '<select id="d-sens" class="champ"><option value="on_me_doit">On me doit</option><option value="je_dois">Je dois</option></select>' +
+        '<input id="d-montant" class="champ" inputmode="numeric" placeholder="Montant"><input id="d-echeance" class="champ" type="date">' +
+        '<button class="principal" data-act="creer-dette">Enregistrer la dette</button>');
+    },
+    "creer-dette": function () {
+      var tiers = (document.getElementById("d-tiers") || {}).value || "";
+      if (!tiers.trim()) { avis("Indiquez le nom."); return; }
+      S.db.dettes.push({
+        id: uid(), tiers: tiers.trim(),
+        sens: (document.getElementById("d-sens") || {}).value || "on_me_doit",
+        montant: Number((document.getElementById("d-montant") || {}).value) || 0,
+        echeance: (document.getElementById("d-echeance") || {}).value || "",
+        paiements: []
+      });
+      enregistrer(); fermerFeuille(); rendre();
+    },
+    "payer-dette": function (d) {
+      var dette = S.db.dettes.filter(function (x) { return x.id === d.id; })[0];
+      if (!dette) return;
+      ouvrirFeuille('<h2>Paiement</h2><p class="sous">Reste ' + fcfa(resteDette(dette)) + "</p>" +
+        '<input id="pay-montant" class="champ" inputmode="numeric" placeholder="Montant payé">' +
+        '<button class="principal" data-act="confirmer-paiement" data-id="' + d.id + '">Confirmer</button>');
+    },
+    "confirmer-paiement": function (d) {
+      var dette = S.db.dettes.filter(function (x) { return x.id === d.id; })[0];
+      var m = Number((document.getElementById("pay-montant") || {}).value) || 0;
+      if (!dette || m <= 0) { avis("Montant invalide."); return; }
+      dette.paiements = dette.paiements || [];
+      dette.paiements.push({ date: jour(), montant: m });
+      enregistrer(); fermerFeuille(); rendre();
+      notifier("Paiement enregistré", fcfa(m) + " sur la dette de " + dette.tiers + ".");
+    },
+    "nouveau-client": function () {
+      ouvrirFeuille('<h2>Nouvelle fiche</h2><input id="cl-nom" class="champ" placeholder="Nom">' +
+        '<select id="cl-type" class="champ"><option value="client">Client</option><option value="fournisseur">Fournisseur</option></select>' +
+        '<input id="cl-tel" class="champ" placeholder="Téléphone"><button class="principal" data-act="creer-client">Enregistrer</button>');
+    },
+    "creer-client": function () {
+      var nom = (document.getElementById("cl-nom") || {}).value || "";
+      if (!nom.trim()) { avis("Indiquez le nom."); return; }
+      S.db.clients.push({ id: uid(), nom: nom.trim(), type: (document.getElementById("cl-type") || {}).value, tel: (document.getElementById("cl-tel") || {}).value || "" });
+      enregistrer(); fermerFeuille(); rendre();
+    },
+    "nouvel-employe": function () {
+      ouvrirFeuille('<h2>Nouvel employé</h2><input id="e-nom" class="champ" placeholder="Nom"><input id="e-poste" class="champ" placeholder="Poste">' +
+        '<input id="e-salaire" class="champ" inputmode="numeric" placeholder="Salaire mensuel"><button class="principal" data-act="creer-employe">Enregistrer</button>');
+    },
+    "creer-employe": function () {
+      var nom = (document.getElementById("e-nom") || {}).value || "";
+      if (!nom.trim()) { avis("Indiquez le nom."); return; }
+      S.db.employes.push({ id: uid(), nom: nom.trim(), poste: (document.getElementById("e-poste") || {}).value || "", salaire: Number((document.getElementById("e-salaire") || {}).value) || 0, paye: false });
+      enregistrer(); fermerFeuille(); rendre();
+    },
+    "nouvel-evenement": function () {
+      ouvrirFeuille('<h2>Nouvel événement</h2><input id="ev-titre" class="champ" placeholder="Titre"><input id="ev-date" class="champ" type="date">' +
+        '<button class="principal" data-act="creer-evenement">Enregistrer</button>');
+    },
+    "creer-evenement": function () {
+      var titre = (document.getElementById("ev-titre") || {}).value || "";
+      if (!titre.trim()) { avis("Indiquez un titre."); return; }
+      S.db.agenda.push({ id: uid(), titre: titre.trim(), date: (document.getElementById("ev-date") || {}).value || jour() });
+      enregistrer(); fermerFeuille(); rendre();
+    },
+    "nouvelle-facture": function () {
+      var h = '<h2>Nouvelle facture</h2><input id="f-client" class="champ" placeholder="Client">';
+      h += '<input id="f-objet" class="champ" placeholder="Objet (ex. 10 sacs)">';
+      h += '<input id="f-total" class="champ" inputmode="numeric" placeholder="Montant total">';
+      h += '<button class="principal" data-act="creer-facture">Créer la facture</button>';
+      ouvrirFeuille(h);
+    },
+    "creer-facture": function () {
+      var total = Number((document.getElementById("f-total") || {}).value) || 0;
+      if (total <= 0) { avis("Montant invalide."); return; }
+      var numero = "FA-" + String(S.db.factures.length + 1).padStart(4, "0");
+      S.db.factures.push({ id: uid(), numero: numero, client: (document.getElementById("f-client") || {}).value || "", objet: (document.getElementById("f-objet") || {}).value || "", total: total, date: jour() });
+      enregistrer(); fermerFeuille(); rendre();
+      notifier("Facture créée", numero + " · " + fcfa(total));
+    },
+    "pdf-facture": function (d) {
+      var f = S.db.factures.filter(function (x) { return x.id === d.id; })[0];
+      if (!f) return;
+      var lignes = [
+        S.db.entreprise.nom,
+        "Facture " + f.numero,
+        "Date : " + f.date.split("-").reverse().join("/"),
+        "Client : " + (f.client || "-"),
+        "Objet : " + (f.objet || "-"),
+        "",
+        "Montant total : " + fcfa(f.total),
+        "",
+        "Merci de votre confiance."
+      ];
+      var b64 = pdfSimple(lignes);
+      enregistrerFichier("facture-" + f.numero + ".pdf", "application/pdf", b64);
+      avis("Facture exportée dans Téléchargements.");
+    },
+    "exporter-json": function () {
+      var txt = JSON.stringify(S.db, null, 2);
+      enregistrerFichier("grand-livre-sauvegarde-" + jour() + ".json", "application/json", btoa(unescape(encodeURIComponent(txt))));
+      avis("Sauvegarde exportée.");
+    },
+    "exporter-csv": function () {
+      var lignes = ["date;sens;libelle;categorie;montant"];
+      S.db.operations.forEach(function (o) {
+        lignes.push([o.date, o.sens, (o.libelle || "").replace(/;/g, ","), (o.categorie || "").replace(/;/g, ","), o.montant].join(";"));
+      });
+      enregistrerFichier("grand-livre-" + jour() + ".csv", "text/csv", btoa(unescape(encodeURIComponent(lignes.join("\n")))));
+      avis("Export CSV prêt.");
+    },
+    restaurer: function () { var i = document.getElementById("fichier-restauration"); if (i) i.click(); },
+    "importer-fichier": function () { var i = document.getElementById("fichier-import"); if (i) i.click(); },
+    "importer-texte": function () {
+      var t = (document.getElementById("zone-import") || {}).value || "";
+      if (!t.trim()) { avis("Collez des lignes à importer."); return; }
+      var n = 0;
+      t.split("\n").forEach(function (l) {
+        var p = l.split(/[;\t,]/).map(function (x) { return x.trim(); });
+        if (p.length >= 2 && p[0]) {
+          S.db.produits.push({ id: uid(), nom: p[0], achat: Number(p[1]) || 0, vente: Number(p[2]) || 0, qte: Number(p[3]) || 0, fournisseur: "", vendus: 0 });
           n++;
-        });
-      } else {
-        txt.split(/\r?\n/).forEach((l, i) => {
-          if (!l.trim() || (i === 0 && /nom/i.test(l))) return;
-          const c = l.split(/[;,\t]/).map(x => x.trim());
-          if (!c[0]) return;
-          DB.produits.push({ id: uid(), ent: E(), nom: c[0], achat: +c[1] || 0, vente: +c[2] || 0, qte: +c[3] || 0, seuil: 3, fournisseur: "", precommande: false });
-          n++;
-        });
-      }
-      sauver(); fermer(); toast(n + " produit(s) importé(s)"); rendre();
-    };
-    $("#ok", f).onclick = () => { try { traiter($("#txt", f).value); } catch (e) { toast("Format non reconnu"); } };
-    $("#fichier", f).onclick = () => $("#file", f).click();
-    $("#file", f).onchange = e => {
-      const fl = e.target.files[0]; if (!fl) return;
-      const r = new FileReader();
-      r.onload = () => { $("#txt", f).value = r.result; };
-      r.readAsText(fl);
-    };
-  });
-}
-
-/* ---------- comptes ---------- */
-function ficheCompte() {
-  ouvrir(`<div class="feuille-tete"><h2>Nouveau compte</h2><button class="rond" data-fermer>✕</button></div>
-    <label class="etq">Nom</label><input class="saisie" id="nom" placeholder="Orange Money, Moov, Banque…">
-    <label class="etq">Type</label>
-    <div class="puces" id="types">
-      <button class="puce on" data-ty="mobile">Mobile money</button>
-      <button class="puce" data-ty="banque">Banque</button>
-      <button class="puce" data-ty="caisse">Caisse</button>
-    </div>
-    <label class="etq">Solde de départ</label><input class="saisie" id="solde" type="number" inputmode="numeric" value="0">
-    <button class="btn" id="ok">Créer le compte</button>`, f => {
-    let ty = "mobile";
-    $$("[data-ty]", f).forEach(b => b.onclick = () => { ty = b.dataset.ty; $$("[data-ty]", f).forEach(x => x.classList.toggle("on", x === b)); });
-    $("#ok", f).onclick = () => {
-      const nom = $("#nom", f).value.trim();
-      if (!nom) return toast("Nom obligatoire");
-      DB.comptes.push({ id: uid(), ent: E(), nom, type: ty, solde: +$("#solde", f).value || 0 });
-      sauver(); fermer(); rendre();
-    };
-  });
-}
-
-function transfert() {
-  const cs = comptes();
-  if (cs.length < 2) return toast("Créez au moins deux comptes");
-  ouvrir(`<div class="feuille-tete"><h2>Transfert</h2><button class="rond" data-fermer>✕</button></div>
-    <label class="etq">Depuis</label><select class="saisie" id="de">${cs.map(c => `<option value="${c.id}">${esc(c.nom)}</option>`).join("")}</select>
-    <label class="etq">Vers</label><select class="saisie" id="vers">${cs.map(c => `<option value="${c.id}">${esc(c.nom)}</option>`).join("")}</select>
-    <label class="etq">Montant</label><input class="saisie" id="m" type="number" inputmode="numeric">
-    <button class="btn" id="ok">Transférer</button>`, f => {
-    $("#ok", f).onclick = () => {
-      const m = +$("#m", f).value, a = $("#de", f).value, b = $("#vers", f).value;
-      if (!m || a === b) return toast("Vérifiez les comptes et le montant");
-      DB.operations.push({ id: uid(), ent: E(), type: "depense", montant: m, categorie: "Transfert", compte: a, date: jour(), note: "Transfert sortant", cree: Date.now() });
-      DB.operations.push({ id: uid(), ent: E(), type: "revenu", montant: m, categorie: "Transfert", compte: b, date: jour(), note: "Transfert entrant", cree: Date.now() });
-      sauver(); fermer(); toast("Transfert effectué"); rendre();
-    };
-  });
-}
-
-function corrigerSolde() {
-  const cs = comptes();
-  ouvrir(`<div class="feuille-tete"><h2>Corriger un solde</h2><button class="rond" data-fermer>✕</button></div>
-    <label class="etq">Compte</label><select class="saisie" id="c">${cs.map(c => `<option value="${c.id}">${esc(c.nom)} — ${fcfa(soldeCompte(c))}</option>`).join("")}</select>
-    <label class="etq">Solde réel constaté</label><input class="saisie" id="m" type="number" inputmode="numeric">
-    <button class="btn" id="ok">Ajuster</button>`, f => {
-    $("#ok", f).onclick = () => {
-      const c = DB.comptes.find(x => x.id === $("#c", f).value);
-      const reel = +$("#m", f).value;
-      if (isNaN(reel)) return toast("Entrez un montant");
-      const diff = reel - soldeCompte(c);
-      DB.operations.push({
-        id: uid(), ent: E(), type: diff >= 0 ? "revenu" : "depense", montant: Math.abs(diff),
-        categorie: "Correction", compte: c.id, date: jour(), note: "Correction de solde", cree: Date.now()
+        }
       });
-      sauver(); fermer(); toast("Solde corrigé"); rendre();
-    };
-  });
-}
-
-/* ---------- dettes ---------- */
-function ficheDette() {
-  ouvrir(`<div class="feuille-tete"><h2>Nouvelle dette</h2><button class="rond" data-fermer>✕</button></div>
-    <div class="puces" id="sens">
-      <button class="puce on" data-s="je_dois">Je dois</button>
-      <button class="puce" data-s="on_me_doit">On me doit</button>
-    </div>
-    <label class="etq">Nom</label><input class="saisie" id="tiers" placeholder="Client ou fournisseur">
-    <label class="etq">Montant</label><input class="saisie" id="m" type="number" inputmode="numeric">
-    <label class="etq">Échéance</label><input class="saisie" id="ech" type="date" value="${jour()}">
-    <button class="btn" id="ok">Enregistrer</button>`, f => {
-    let sens = "je_dois";
-    $$("[data-s]", f).forEach(b => b.onclick = () => { sens = b.dataset.s; $$("[data-s]", f).forEach(x => x.classList.toggle("on", x === b)); });
-    $("#ok", f).onclick = () => {
-      const t = $("#tiers", f).value.trim(), m = +$("#m", f).value;
-      if (!t || !m) return toast("Nom et montant obligatoires");
-      DB.dettes.push({ id: uid(), ent: E(), sens, tiers: t, montant: m, echeance: $("#ech", f).value, paiements: [] });
-      sauver(); fermer(); rendre();
-    };
-  });
-}
-
-function paiementDette(id) {
-  const d = DB.dettes.find(x => x.id === id);
-  const reste = d.montant - (d.paiements || []).reduce((s, p) => s + p.montant, 0);
-  ouvrir(`<div class="feuille-tete"><h2>${esc(d.tiers)}</h2><button class="rond" data-fermer>✕</button></div>
-    <p class="mini">Reste à régler : <b>${fcfa(reste)}</b></p>
-    <label class="etq">Montant du paiement</label><input class="saisie" id="m" type="number" inputmode="numeric" value="${reste}">
-    <button class="btn" id="ok">Enregistrer le paiement</button>`, f => {
-    $("#ok", f).onclick = () => {
-      const m = +$("#m", f).value;
-      if (!m) return;
-      d.paiements = d.paiements || [];
-      d.paiements.push({ date: jour(), montant: m });
-      if (d.sens === "je_dois") {
-        DB.operations.push({ id: uid(), ent: E(), type: "depense", montant: m, categorie: "Dette", compte: comptes()[0] ? comptes()[0].id : null, date: jour(), note: "Paiement dette " + d.tiers, cree: Date.now() });
-      } else {
-        DB.operations.push({ id: uid(), ent: E(), type: "revenu", montant: m, categorie: "Créance", compte: comptes()[0] ? comptes()[0].id : null, date: jour(), note: "Encaissement " + d.tiers, cree: Date.now() });
-      }
-      sauver(); fermer(); toast("Paiement enregistré"); rendre();
-    };
-  });
-}
-
-/* ---------- employés ---------- */
-function ficheEmploye() {
-  ouvrir(`<div class="feuille-tete"><h2>Nouvel employé</h2><button class="rond" data-fermer>✕</button></div>
-    <label class="etq">Nom</label><input class="saisie" id="nom">
-    <label class="etq">Poste</label><input class="saisie" id="poste">
-    <label class="etq">Salaire mensuel</label><input class="saisie" id="salaire" type="number" inputmode="numeric">
-    <button class="btn" id="ok">Enregistrer</button>`, f => {
-    $("#ok", f).onclick = () => {
-      const nom = $("#nom", f).value.trim();
-      if (!nom) return toast("Nom obligatoire");
-      DB.employes.push({ id: uid(), ent: E(), nom, poste: $("#poste", f).value.trim(), salaire: +$("#salaire", f).value || 0, paiements: [] });
-      sauver(); fermer(); rendre();
-    };
-  });
-}
-
-function basculerSalaire(id) {
-  const e = DB.employes.find(x => x.id === id);
-  e.paiements = e.paiements || [];
-  const m = mois();
-  if (e.paiements.includes(m)) {
-    e.paiements = e.paiements.filter(x => x !== m);
-    toast("Marqué à payer");
-  } else {
-    e.paiements.push(m);
-    DB.operations.push({ id: uid(), ent: E(), type: "depense", montant: e.salaire, categorie: "Salaire", compte: comptes()[0] ? comptes()[0].id : null, date: jour(), note: "Salaire " + e.nom, cree: Date.now() });
-    toast("Salaire payé et enregistré");
-  }
-  sauver(); rendre();
-}
-
-/* ---------- clients, agenda ---------- */
-function vueTiers() {
-  ouvrir(`<div class="feuille-tete"><h2>Clients et fournisseurs</h2><button class="rond" data-fermer>✕</button></div>
-    <div class="carte">${tiers().map(t => ligne(t.type === "fournisseur" ? "🚚" : "👤", t.nom, (t.tel || "") + " · " + t.type, "▸")).join("") || `<div class="vide">Aucune fiche.</div>`}</div>
-    <button class="btn" id="ajout">Ajouter une fiche</button>`, f => {
-    $("#ajout", f).onclick = () => {
-      const nom = prompt("Nom"); if (!nom) return;
-      const tel = prompt("Téléphone (facultatif)") || "";
-      const type = (prompt("Type : client ou fournisseur", "client") || "client").toLowerCase().includes("four") ? "fournisseur" : "client";
-      DB.tiers.push({ id: uid(), ent: E(), nom: nom.trim(), tel, type });
-      sauver(); vueTiers(); rendre();
-    };
-  });
-}
-
-function vueAgenda() {
-  ouvrir(`<div class="feuille-tete"><h2>Agenda</h2><button class="rond" data-fermer>✕</button></div>
-    <div class="carte">${agenda().map(a => ligne("🗓", a.titre, joliDate(a.date) + " · " + (a.type || "événement"), "▸")).join("") || `<div class="vide">Aucun événement.</div>`}</div>
-    <button class="btn" id="ajout">Ajouter</button>`, f => {
-    $("#ajout", f).onclick = () => {
-      const titre = prompt("Titre"); if (!titre) return;
-      const date = prompt("Date (AAAA-MM-JJ)", jour()) || jour();
-      DB.agenda.push({ id: uid(), ent: E(), titre: titre.trim(), date, type: "événement" });
-      sauver(); vueAgenda(); rendre();
-    };
-  });
-}
-
-/* ---------- programmees ---------- */
-function programmees() {
-  ouvrir(`<div class="feuille-tete"><h2>Dépenses programmées</h2><button class="rond" data-fermer>✕</button></div>
-    <div class="carte">${prog().map(p => ligne("⏱", p.libelle, joliDate(p.date) + " · " + p.recurrence, fcfa(p.montant))).join("") || `<div class="vide">Aucune dépense programmée.</div>`}</div>
-    <button class="btn" id="ajout">Programmer une dépense</button>`, f => {
-    $("#ajout", f).onclick = () => {
-      const libelle = prompt("Libellé"); if (!libelle) return;
-      const montant = +prompt("Montant", "0") || 0;
-      const date = prompt("Date (AAAA-MM-JJ)", jour()) || jour();
-      const rec = prompt("Récurrence : aucune, mensuelle, hebdomadaire", "aucune") || "aucune";
-      DB.programmees.push({ id: uid(), ent: E(), libelle, montant, date, recurrence: rec });
-      sauver(); programmees(); rendre();
-    };
-  });
-}
-
-/* ---------- bilans ---------- */
-function vueBilans() {
-  const m = mois();
-  const an = new Date().getFullYear();
-  const caA = ops().filter(o => o.type === "revenu" && o.date.startsWith(an)).reduce((s, o) => s + o.montant, 0);
-  const depA = ops().filter(o => o.type === "depense" && o.date.startsWith(an)).reduce((s, o) => s + o.montant, 0);
-  ouvrir(`<div class="feuille-tete"><h2>Bilans</h2><button class="rond" data-fermer>✕</button></div>
-    <div class="carte">
-      ${ligne("📅", "Ce mois", joliMois(m), `${court(caMois() - depMois())}`, "plus")}
-      ${ligne("📆", "Cette année", String(an), `${court(caA - depA)}`, "plus")}
-      ${ligne("📈", "Chiffre d'affaires " + an, "", court(caA))}
-      ${ligne("📉", "Dépenses " + an, "", court(depA), "moins")}
-    </div>
-    <button class="btn sec" id="pdf">Exporter le bilan (PDF)</button>
-    <button class="btn sec" id="csv">Exporter les opérations (CSV)</button>
-    <button class="btn sec" id="archives">Archives par mois</button>`, f => {
-    $("#pdf", f).onclick = () => pdfBilan();
-    $("#csv", f).onclick = () => exportCSV();
-    $("#archives", f).onclick = archives;
-  });
-}
-
-function archives() {
-  const ms = [...new Set(ops().map(o => o.date.slice(0, 7)))].sort().reverse();
-  ouvrir(`<div class="feuille-tete"><h2>Archives</h2><button class="rond" data-fermer>✕</button></div>
-    <div class="carte">${ms.map(m => {
-      const ca = caMois(m), dp = depMois(m);
-      return ligne("🗂", joliMois(m), `CA ${court(ca)} · dépenses ${court(dp)}`, court(ca - dp), ca - dp >= 0 ? "plus" : "moins");
-    }).join("") || `<div class="vide">Aucun historique.</div>`}</div>`);
-}
-
-/* ---------- factures ---------- */
-function vueFactures() {
-  ouvrir(`<div class="feuille-tete"><h2>Factures</h2><button class="rond" data-fermer>✕</button></div>
-    <div class="carte">${factures().map(x => ligne("🧾", "N° " + x.numero, x.client + " · " + joliDate(x.date), fcfa(x.total))).join("") || `<div class="vide">Aucune facture.</div>`}</div>
-    <button class="btn" id="ajout">Créer une facture</button>`, f => {
-    $("#ajout", f).onclick = facture;
-  });
-}
-
-function facture() {
-  ouvrir(`<div class="feuille-tete"><h2>Nouvelle facture</h2><button class="rond" data-fermer>✕</button></div>
-    <label class="etq">Client</label><input class="saisie" id="client" placeholder="Nom du client">
-    <label class="etq">Articles</label>
-    <textarea class="saisie" id="lignes" placeholder="Crocs;8500;2&#10;Sac cuir;24500;1"></textarea>
-    <p class="mini">Une ligne par article : nom;prix;quantité</p>
-    <button class="btn" id="ok">Générer la facture</button>`, f => {
-    $("#ok", f).onclick = () => {
-      const client = $("#client", f).value.trim() || "Client";
-      const lignes = $("#lignes", f).value.split(/\r?\n/).filter(Boolean).map(l => {
-        const [nom, prix, q] = l.split(";");
-        return { nom: (nom || "").trim(), prix: +prix || 0, qte: +q || 1 };
-      }).filter(l => l.nom);
-      if (!lignes.length) return toast("Ajoutez au moins un article");
-      const total = lignes.reduce((s, l) => s + l.prix * l.qte, 0);
-      const numero = "F" + String(factures().length + 1).padStart(4, "0");
-      DB.factures.push({ id: uid(), ent: E(), numero, client, lignes, total, date: jour() });
-      sauver(); fermer();
-      pdfFacture({ numero, client, lignes, total, date: jour() });
-      rendre();
-    };
-  });
-}
-
-/* ---------- assistant local ---------- */
-function assistant() {
-  ouvrir(`<div class="feuille-tete"><h2>Assistant</h2><button class="rond" data-fermer>✕</button></div>
-    <p class="mini">Écrivez comme vous parlez : « dépense 5000 taxi », « combien j'ai dépensé ce mois », « où économiser ».</p>
-    <input class="saisie" id="q" placeholder="Votre phrase…" autocomplete="off">
-    <button class="btn" id="ok">Envoyer</button>
-    <div id="rep" class="carte" style="margin-top:14px;display:none"></div>`, f => {
-    const repondre = () => {
-      const q = $("#q", f).value.trim();
-      if (!q) return;
-      const r = analyser(q);
-      const box = $("#rep", f);
-      box.style.display = "block";
-      box.innerHTML = r;
-      $("#q", f).value = "";
-      if (r.includes("data-ok")) rendre();
-    };
-    $("#ok", f).onclick = repondre;
-    $("#q", f).onkeydown = e => { if (e.key === "Enter") repondre(); };
-  });
-}
-
-function analyser(q) {
-  const t = q.toLowerCase();
-  const m = t.match(/(\d[\d\s.,]*)/);
-  const montant = m ? +m[1].replace(/[\s.,]/g, "") : 0;
-
-  if (/(dépense|depense|payé|paye|acheté|achete|sortie)/.test(t) && montant) {
-    const cat = (cats("depense").find(c => t.includes(c.nom.toLowerCase())) || { nom: "Dépenses" }).nom;
-    DB.operations.push({ id: uid(), ent: E(), type: "depense", montant, categorie: cat, compte: comptes()[0] ? comptes()[0].id : null, date: jour(), note: q.slice(0, 60), cree: Date.now() });
-    sauver();
-    return `<b style="color:var(--ok)">Dépense enregistrée</b><br>${fcfa(montant)} en ${esc(cat)}. <span data-ok></span>`;
-  }
-  if (/(revenu|reçu|recu|vendu|vente|encaissé|encaisse|gagné|gagne)/.test(t) && montant) {
-    DB.operations.push({ id: uid(), ent: E(), type: "revenu", montant, categorie: "Ventes", compte: comptes()[0] ? comptes()[0].id : null, date: jour(), note: q.slice(0, 60), cree: Date.now() });
-    sauver();
-    return `<b style="color:var(--ok)">Revenu enregistré</b><br>${fcfa(montant)}. <span data-ok></span>`;
-  }
-  if (/(combien|total|somme).*(dépens|depens)/.test(t)) {
-    return `Ce mois : <b>${fcfa(depMois())}</b> de dépenses.<br>Le plus gros poste : ${depensesParCategorie()[0] ? depensesParCategorie()[0][0] + " (" + fcfa(depensesParCategorie()[0][1]) + ")" : "aucun"}.`;
-  }
-  if (/(bénéfice|benefice|gagné|marge)/.test(t)) {
-    return `Bénéfice de ${joliMois(mois())} : <b>${fcfa(caMois() - depMois())}</b>.<br>CA ${fcfa(caMois())} − dépenses ${fcfa(depMois())}.`;
-  }
-  if (/(économis|economis|conseil|réduire|reduire)/.test(t)) {
-    const d = depensesParCategorie().slice(0, 3);
-    if (!d.length) return "Pas encore assez de données. Enregistrez quelques dépenses et je vous dirai où couper.";
-    return `Vos trois postes les plus lourds ce mois :<br>` +
-      d.map(([k, v], i) => `${i + 1}. ${esc(k)} — ${fcfa(v)}`).join("<br>") +
-      `<br><br>Le premier représente ${Math.round((d[0][1] / Math.max(1, depMois())) * 100)} % de vos dépenses. C'est là qu'un effort de 10 % se voit tout de suite.`;
-  }
-  if (/(solde|combien.*reste)/.test(t)) return `Solde total : <b>${fcfa(soldeTotal())}</b> sur ${comptes().length} compte(s).`;
-  return `Je sais enregistrer une dépense ou un revenu (« dépense 5000 transport »), donner votre solde, votre bénéfice, vos postes de dépense et des conseils d'économie. Réessayez avec un montant.`;
-}
-
-/* ---------- entreprises ---------- */
-function entreprises() {
-  ouvrir(`<div class="feuille-tete"><h2>Entreprises</h2><button class="rond" data-fermer>✕</button></div>
-    <div class="carte">${DB.entreprises.map(e => ligne("🏢", e.nom, e.type === "personnel" ? "Personnel" : "Entreprise", e.id === E() ? "actif" : "▸")).join("")}</div>
-    <button class="btn" id="ajout">Créer un espace</button>`, f => {
-    $$(".ligne", f).forEach((el, i) => el.onclick = () => { DB.active = DB.entreprises[i].id; sauver(); fermer(); rendre(); toast("Espace : " + DB.entreprises[i].nom); });
-    $("#ajout", f).onclick = () => {
-      const nom = prompt("Nom de l'entreprise"); if (!nom) return;
-      const perso = (prompt("Type : entreprise ou personnel", "entreprise") || "").toLowerCase().includes("perso");
-      const id = uid();
-      DB.entreprises.push({ id, nom: nom.trim(), type: perso ? "personnel" : "entreprise" });
-      DB.comptes.push({ id: uid(), ent: id, nom: perso ? "Espèces" : "Caisse", type: "caisse", solde: 0 });
-      DB.active = id; sauver(); fermer(); rendre();
-    };
-  });
-}
-
-/* ---------- sauvegarde ---------- */
-function sauvegarde() {
-  ouvrir(`<div class="feuille-tete"><h2>Sauvegarde</h2><button class="rond" data-fermer>✕</button></div>
-    <p class="mini">Le fichier contient toutes vos données : entreprises, comptes, opérations, stock, dettes, factures.</p>
-    <button class="btn" id="exp">Exporter mes données</button>
-    <button class="btn sec" id="imp">Restaurer une sauvegarde</button>
-    <input type="file" id="file" accept=".json,application/json" hidden>
-    <p class="mini" style="margin-top:14px">Dernière sauvegarde automatique : à chaque modification, dans la mémoire de l'application.</p>`, f => {
-    $("#exp", f).onclick = () => {
-      const txt = JSON.stringify(DB, null, 2);
-      ecrireFichier("grand-livre-sauvegarde-" + jour() + ".json", "application/json", txt);
-    };
-    $("#imp", f).onclick = () => $("#file", f).click();
-    $("#file", f).onchange = e => {
-      const fl = e.target.files[0]; if (!fl) return;
-      const r = new FileReader();
-      r.onload = () => {
-        try {
-          const d = JSON.parse(r.result);
-          if (!d.entreprises) throw 0;
-          DB = d; sauver(); fermer(); toast("Sauvegarde restaurée"); rendre();
-        } catch (err) { toast("Fichier invalide"); }
-      };
-      r.readAsText(fl);
-    };
-  });
-}
-
-/* ---------- réglages ---------- */
-function reglages() {
-  ouvrir(`<div class="feuille-tete"><h2>Réglages</h2><button class="rond" data-fermer>✕</button></div>
-    <div class="carte">
-      ${ligne("◐", "Thème", DB.reglages.theme === "clair" ? "clair" : "sombre", "changer")}
-      ${ligne("🔒", "Code d'accès", DB.reglages.pin ? "activé" : "aucun", "changer")}
-      ${ligne("ℹ", "Version", "Grand Livre 1.0", "")}
-    </div>
-    <button class="btn danger" id="raz">Réinitialiser toutes les données</button>`, f => {
-    $$(".ligne", f)[0].onclick = () => { basculerTheme(); fermer(); };
-    $$(".ligne", f)[1].onclick = definirPin;
-    $("#raz", f).onclick = () => {
-      if (!confirm("Effacer toutes les données ? Cette action est définitive.")) return;
-      localStorage.removeItem(CLE); charger(); fermer(); rendre(); toast("Données effacées");
-    };
-  });
-}
-
-function basculerTheme() {
-  const clair = DB.reglages.theme !== "clair";
-  DB.reglages.theme = clair ? "clair" : "sombre";
-  document.documentElement.dataset.theme = clair ? "clair" : "sombre";
-  sauver();
-}
-
-function definirPin() {
-  const p = prompt("Nouveau code à 4 chiffres (laisser vide pour désactiver)", "");
-  if (p === null) return;
-  if (p === "") { DB.reglages.pin = ""; sauver(); toast("Code désactivé"); return; }
-  if (!/^\d{4}$/.test(p)) return toast("4 chiffres attendus");
-  DB.reglages.pin = p; sauver(); toast("Code activé");
-}
-
-/* ---------- verrou ---------- */
-function verrouiller() {
-  const pin = DB.reglages.pin;
-  if (!pin) return;
-  const v = $("#verrou"), pts = $("#verrou-points"), pave = $("#pave");
-  v.hidden = false;
-  let saisie = "";
-  const maj = () => pts.innerHTML = [0, 1, 2, 3].map(i => `<i class="${i < saisie.length ? "on" : ""}"></i>`).join("");
-  maj();
-  pave.innerHTML = "";
-  ["1","2","3","4","5","6","7","8","9","","0","⌫"].forEach(t => {
-    const b = document.createElement("button");
-    b.textContent = t;
-    if (!t) { b.style.visibility = "hidden"; }
-    b.onclick = () => {
-      if (t === "⌫") saisie = saisie.slice(0, -1);
-      else if (t && saisie.length < 4) saisie += t;
-      maj();
-      if (saisie.length === 4) {
-        if (saisie === pin) { v.hidden = true; }
-        else { $("#verrou-msg").textContent = "Code incorrect"; saisie = ""; maj(); }
-      }
-    };
-    pave.appendChild(b);
-  });
-}
-
-/* ---------- fichiers ---------- */
-function ecrireFichier(nom, mime, contenu) {
-  if (window.Nexus && window.Nexus.saveFile) {
-    try {
-      const b64 = btoa(unescape(encodeURIComponent(contenu)));
-      const chemin = window.Nexus.saveFile(nom, mime, b64);
-      toast("Enregistré : " + (chemin || nom));
-      return;
-    } catch (e) { /* on retombe sur le téléchargement */ }
-  }
-  const blob = new Blob([contenu], { type: mime });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = nom;
-  document.body.appendChild(a); a.click(); a.remove();
-  toast("Fichier : " + nom);
-}
-
-function exportCSV() {
-  const entetes = ["date", "type", "categorie", "montant", "note"];
-  const lignes = ops().map(o => [o.date, o.type, o.categorie || "", o.montant, (o.note || "").replace(/;/g, ",")].join(";"));
-  ecrireFichier("operations-" + jour() + ".csv", "text/csv", [entetes.join(";")].concat(lignes).join("\n"));
-}
-
-/* ---------- PDF minimal ---------- */
-function pdfDe(lignes) {
-  const pages = [];
-  const parPage = 42;
-  for (let i = 0; i < lignes.length; i += parPage) pages.push(lignes.slice(i, i + parPage));
-  if (!pages.length) pages.push([""]);
-
-  const objets = [];
-  const contenu = p => {
-    let s = "BT\n/F1 11 Tf\n50 800 Td\n14 TL\n";
-    p.forEach(l => { s += "(" + String(l).replace(/([()\\])/g, "\\$1").replace(/[^\x20-\x7E]/g, "?") + ") Tj\nT*\n"; });
-    return s + "ET";
+      enregistrer(); rendre();
+      notifier("Import terminé", n + " produits ajoutés.");
+    },
+    "enregistrer-nom": function () {
+      var v = (document.getElementById("reg-nom") || {}).value || "";
+      if (!v.trim()) { avis("Le nom ne peut pas être vide."); return; }
+      S.db.entreprise.nom = v.trim();
+      enregistrer(); rendre();
+      notifier("Nom enregistré", S.db.entreprise.nom);
+    },
+    "changer-cle": function () {
+      var v = ((document.getElementById("reg-cle") || {}).value || "").trim().toUpperCase();
+      if (v.length < 6) { avis("La clé doit faire au moins 6 caractères."); return; }
+      appeler({ action: "rename", code: S.code, nouveau: v }).then(function (r) {
+        if (r && r.ok) {
+          S.code = v;
+          localStorage.setItem(CLE_CODE, v);
+          envoyer();
+          rendre();
+          notifier("Clé modifiée", "Nouvelle clé : " + v);
+        } else {
+          avis(r && r.erreur === "cle_deja_utilisee" ? "Cette clé est déjà utilisée." : "Impossible de changer la clé pour le moment.");
+        }
+      }).catch(function () { avis("Connexion nécessaire pour changer la clé."); });
+    },
+    "copier-code": function () {
+      var code = btoa(unescape(encodeURIComponent(JSON.stringify(S.db))));
+      var zone = document.getElementById("zone-code");
+      if (zone) zone.value = code;
+      if (navigator.clipboard) navigator.clipboard.writeText(code).catch(function () {});
+      avis("Code copié. Envoyez-le à votre collaborateur.");
+    },
+    "charger-code": function () {
+      var v = (document.getElementById("zone-code") || {}).value || "";
+      try {
+        var d = JSON.parse(decodeURIComponent(escape(atob(v.trim()))));
+        if (!d || !d.entreprise) throw 0;
+        S.db = d;
+        enregistrer(); rendre();
+        notifier("Données chargées", "Toutes les écritures ont été reprises.");
+      } catch (e) { avis("Code invalide."); }
+    },
+    verrouiller: function () { localStorage.removeItem(CLE_CODE); location.reload(); },
+    fermer: function () { fermerFeuille(); }
   };
-  const nbPages = pages.length;
-  objets.push("<< /Type /Catalog /Pages 2 0 R >>");
-  const kids = [];
-  for (let i = 0; i < nbPages; i++) kids.push((3 + i * 2) + " 0 R");
-  objets.push("<< /Type /Pages /Kids [" + kids.join(" ") + "] /Count " + nbPages + " >>");
-  pages.forEach((p, i) => {
-    const c = contenu(p);
-    objets.push("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 " + (3 + nbPages * 2) + " 0 R >> >> /Contents " + (4 + i * 2) + " 0 R >>");
-    objets.push("<< /Length " + c.length + " >>\nstream\n" + c + "\nendstream");
-  });
-  objets.push("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
 
-  let pdf = "%PDF-1.4\n";
-  const offsets = [];
-  objets.forEach((o, i) => { offsets.push(pdf.length); pdf += (i + 1) + " 0 obj\n" + o + "\nendobj\n"; });
-  const xref = pdf.length;
-  pdf += "xref\n0 " + (objets.length + 1) + "\n0000000000 65535 f \n";
-  offsets.forEach(o => { pdf += String(o).padStart(10, "0") + " 00000 n \n"; });
-  pdf += "trailer\n<< /Size " + (objets.length + 1) + " /Root 1 0 R >>\nstartxref\n" + xref + "\n%%EOF";
-  return pdf;
-}
-
-function pdfFacture(f) {
-  const e = DB.entreprises.find(x => x.id === E()) || { nom: "Mon entreprise" };
-  const L = [];
-  L.push(e.nom.toUpperCase());
-  L.push("Facture n° " + f.numero + "   -   " + joliDate(f.date));
-  L.push("");
-  L.push("Client : " + f.client);
-  L.push("");
-  L.push("Article                       Qte      Prix unit.        Total");
-  L.push("---------------------------------------------------------------");
-  f.lignes.forEach(l => {
-    const nom = (l.nom + "                              ").slice(0, 28);
-    L.push(nom + String(l.qte).padStart(4) + "   " + fcfa(l.prix).padStart(14) + "   " + fcfa(l.prix * l.qte).padStart(14));
-  });
-  L.push("---------------------------------------------------------------");
-  L.push("TOTAL A PAYER".padEnd(46) + fcfa(f.total).padStart(14));
-  L.push("");
-  L.push("Merci de votre confiance.");
-  ecrireFichier("facture-" + f.numero + ".pdf", "application/pdf", pdfDe(L));
-}
-
-function pdfBilan() {
-  const m = mois(), an = new Date().getFullYear();
-  const e = DB.entreprises.find(x => x.id === E()) || { nom: "Mon entreprise" };
-  const L = [
-    e.nom.toUpperCase() + " - BILAN",
-    "Édité le " + joliDate(jour()),
-    "",
-    "Mois " + joliMois(m),
-    "  Chiffre d'affaires : " + fcfa(caMois()),
-    "  Dépenses           : " + fcfa(depMois()),
-    "  Bénéfice           : " + fcfa(caMois() - depMois()),
-    "",
-    "Année " + an,
-    "  Chiffre d'affaires : " + fcfa(ops().filter(o => o.type === "revenu" && o.date.startsWith(an)).reduce((s, o) => s + o.montant, 0)),
-    "  Dépenses           : " + fcfa(ops().filter(o => o.type === "depense" && o.date.startsWith(an)).reduce((s, o) => s + o.montant, 0)),
-    "",
-    "Comptes",
-    ...comptes().map(c => "  " + c.nom.padEnd(22) + fcfa(soldeCompte(c))),
-    "",
-    "Dépenses par catégorie (mois)",
-    ...depensesParCategorie().map(([k, v]) => "  " + k.padEnd(22) + fcfa(v)),
-    "",
-    "Produits les plus vendus",
-    ...topProduits(8).map(t => "  " + t.p.nom.padEnd(22) + t.vendu + " vendu(s), bénéfice " + fcfa(beneficeProduit(t.p)))
-  ];
-  ecrireFichier("bilan-" + m + ".pdf", "application/pdf", pdfDe(L));
-}
-
-/* ---------- graphiques ---------- */
-function dessinerCourbe(cv, serie) {
-  if (!cv) return;
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
-  const L = cv.clientWidth || 300, H = cv.clientHeight || 170;
-  cv.width = L * dpr; cv.height = H * dpr;
-  const x = cv.getContext("2d");
-  x.scale(dpr, dpr);
-  const style = getComputedStyle(document.documentElement);
-  const or = style.getPropertyValue("--or").trim() || "#e0b457";
-  const ok = style.getPropertyValue("--ok").trim() || "#3fbf7f";
-  const ko = style.getPropertyValue("--ko").trim() || "#e0574a";
-  const mu = style.getPropertyValue("--mu").trim() || "#9a927f";
-  const max = Math.max(1, ...serie.map(s => Math.max(s.ca, s.dep)));
-  const pad = 8, bas = H - 18, haut = 10;
-  x.clearRect(0, 0, L, H);
-
-  x.strokeStyle = "rgba(150,150,150,.15)";
-  x.lineWidth = 1;
-  for (let i = 0; i <= 3; i++) {
-    const y = haut + (bas - haut) * (i / 3);
-    x.beginPath(); x.moveTo(pad, y); x.lineTo(L - pad, y); x.stroke();
-  }
-
-  const px = i => pad + (L - pad * 2) * (serie.length === 1 ? .5 : i / (serie.length - 1));
-  const py = v => bas - (bas - haut) * (v / max);
-
-  const trace = (cle, coul) => {
-    x.beginPath(); x.lineWidth = 2.4; x.strokeStyle = coul; x.lineJoin = "round";
-    serie.forEach((s, i) => { const X = px(i), Y = py(s[cle]); i ? x.lineTo(X, Y) : x.moveTo(X, Y); });
-    x.stroke();
-    serie.forEach((s, i) => {
-      x.beginPath(); x.arc(px(i), py(s[cle]), 3, 0, 7); x.fillStyle = coul; x.fill();
+  function pdfSimple(lignes) {
+    var contenu = "BT /F1 14 Tf 60 760 Td 20 TL\n";
+    lignes.forEach(function (l) {
+      contenu += "(" + String(l).replace(/[()\\]/g, "\\$&").replace(/[^\x20-\x7E]/g, "") + ") Tj T*\n";
     });
-  };
-  trace("ca", ok); trace("dep", ko);
+    contenu += "ET";
+    var objets = [
+      "<< /Type /Catalog /Pages 2 0 R >>",
+      "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+      "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+      "<< /Length " + contenu.length + " >>\nstream\n" + contenu + "\nendstream"
+    ];
+    var pdf = "%PDF-1.4\n", offsets = [];
+    objets.forEach(function (o, i) {
+      offsets.push(pdf.length);
+      pdf += (i + 1) + " 0 obj\n" + o + "\nendobj\n";
+    });
+    var xref = pdf.length;
+    pdf += "xref\n0 " + (objets.length + 1) + "\n0000000000 65535 f \n";
+    offsets.forEach(function (o) { pdf += String(o).padStart(10, "0") + " 00000 n \n"; });
+    pdf += "trailer\n<< /Size " + (objets.length + 1) + " /Root 1 0 R >>\nstartxref\n" + xref + "\n%%EOF";
+    return btoa(pdf);
+  }
 
-  x.fillStyle = mu; x.font = "10px sans-serif"; x.textAlign = "center";
-  serie.forEach((s, i) => x.fillText(s.m.slice(5), px(i), H - 4));
-}
+  function enregistrerFichier(nom, type, b64) {
+    if (window.Nexus && window.Nexus.saveFile) {
+      try { window.Nexus.saveFile(nom, type, b64); return; } catch (e) {}
+    }
+    var a = document.createElement("a");
+    a.href = "data:" + type + ";base64," + b64;
+    a.download = nom;
+    a.click();
+  }
 
-/* ---------- démarrage ---------- */
-function demarrer() {
-  charger();
-  document.documentElement.dataset.theme = DB.reglages.theme === "clair" ? "clair" : "sombre";
-  majEntete();
-  rendre();
-  verrouiller();
+  function dessinerBarre() {
+    var textes = { accueil: "Accueil", ecritures: "Écritures", stock: "Stock", argent: "Argent", tout: "Tout" };
+    var boutons = document.querySelectorAll("#barre button");
+    Array.prototype.forEach.call(boutons, function (b) {
+      var k = b.dataset.onglet;
+      b.innerHTML = ico(k) + "<span>" + textes[k] + "</span>";
+      b.onclick = function () {
+        S.onglet = k; S.filtre = "tout";
+        Array.prototype.forEach.call(boutons, function (x) { x.classList.remove("actif"); });
+        b.classList.add("actif");
+        rendre();
+        window.scrollTo(0, 0);
+      };
+    });
+  }
 
-  $("#fab").onclick = ajoutRapide;
-  $("#voile").onclick = fermer;
-  $("#btn-theme").onclick = basculerTheme;
-  $("#btn-entreprise").onclick = entreprises;
-  $("#btn-recherche").onclick = () => {
-    $("#feuille-recherche").hidden = false; $("#voile").hidden = false;
-    $("#champ-recherche").focus();
-    $("#champ-recherche").oninput = e => {
-      const q = e.target.value.trim().toLowerCase();
-      const box = $("#resultats");
-      if (q.length < 2) { box.innerHTML = ""; return; }
-      const res = [];
-      produits().filter(p => p.nom.toLowerCase().includes(q)).forEach(p => res.push(["▣", p.nom, fcfa(p.vente)]));
-      tiers().filter(t => t.nom.toLowerCase().includes(q)).forEach(t => res.push(["👤", t.nom, t.tel || ""]));
-      ops().filter(o => (o.note || "").toLowerCase().includes(q) || (o.categorie || "").toLowerCase().includes(q))
-        .slice(0, 6).forEach(o => res.push([o.type === "revenu" ? "↑" : "↓", (o.categorie || "") + " " + (o.note || ""), fcfa(o.montant)]));
-      box.innerHTML = res.length ? res.slice(0, 20).map(r => ligne(r[0], r[1], "", r[2])).join("") : `<div class="vide">Rien trouvé.</div>`;
+  function brancher() {
+    dessinerBarre();
+    var r = document.getElementById("ouvrir-reglages");
+    r.innerHTML = ico("reglages");
+    r.onclick = function () { S.onglet = "reglages"; rendre(); window.scrollTo(0, 0); };
+
+    document.getElementById("nouveau").onclick = feuilleNouveau;
+
+    document.getElementById("feuille").addEventListener("click", function (e) {
+      if (e.target.dataset.fermer !== undefined) fermerFeuille();
+    });
+
+    document.addEventListener("click", function (e) {
+      var b = e.target.closest("[data-act]");
+      if (!b) return;
+      var act = actions[b.dataset.act];
+      if (act) { e.preventDefault(); act(b.dataset); }
+    });
+
+    document.addEventListener("change", function (e) {
+      if (e.target.id === "fichier-import") {
+        var f = e.target.files[0];
+        if (!f) return;
+        var fr = new FileReader();
+        fr.onload = function () {
+          try {
+            var txt = String(fr.result);
+            var n = 0;
+            if (f.name.toLowerCase().endsWith(".json")) {
+              var d = JSON.parse(txt);
+              var arr = Array.isArray(d) ? d : (d.produits || d.items || []);
+              arr.forEach(function (p) {
+                S.db.produits.push({ id: uid(), nom: p.nom || p.name || "Article", achat: Number(p.achat || p.prix_achat) || 0, vente: Number(p.vente || p.prix || p.prix_vente) || 0, qte: Number(p.qte || p.stock) || 0, fournisseur: "", vendus: 0 });
+                n++;
+              });
+            } else {
+              txt.split("\n").forEach(function (l) {
+                var p = l.split(/[;\t,]/).map(function (x) { return x.trim(); });
+                if (p.length >= 2 && p[0]) {
+                  S.db.produits.push({ id: uid(), nom: p[0], achat: Number(p[1]) || 0, vente: Number(p[2]) || 0, qte: Number(p[3]) || 0, fournisseur: "", vendus: 0 });
+                  n++;
+                }
+              });
+            }
+            enregistrer(); rendre();
+            notifier("Import terminé", n + " produits ajoutés.");
+          } catch (err) { avis("Fichier illisible."); }
+        };
+        fr.readAsText(f);
+      }
+      if (e.target.id === "fichier-restauration") {
+        var f2 = e.target.files[0];
+        if (!f2) return;
+        var fr2 = new FileReader();
+        fr2.onload = function () {
+          try {
+            var d = JSON.parse(String(fr2.result));
+            if (d && d.entreprise) { S.db = d; enregistrer(); rendre(); notifier("Restauration terminée", "Données restaurées."); }
+            else avis("Ce fichier n'est pas une sauvegarde.");
+          } catch (err) { avis("Fichier illisible."); }
+        };
+        fr2.readAsText(f2);
+      }
+    });
+
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) recevoir(); });
+    setInterval(function () { if (!document.hidden) recevoir(); }, 45000);
+  }
+
+  function ouvrirApp() {
+    document.getElementById("cle").hidden = true;
+    document.getElementById("app").hidden = false;
+    brancher();
+    rendre();
+    recevoir();
+  }
+
+  function genererCle() {
+    var alpha = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    var s = "";
+    for (var i = 0; i < 6; i++) s += alpha[Math.floor(Math.random() * alpha.length)];
+    return "AURA-" + s;
+  }
+
+  function demarrer() {
+    charger();
+    var zone = document.getElementById("cle");
+    var champ = document.getElementById("champ-cle");
+    var err = document.getElementById("cle-erreur");
+
+    if (S.code) { champ.value = S.code; }
+
+    document.getElementById("entrer").onclick = function () {
+      var v = (champ.value || "").trim().toUpperCase();
+      if (v.length < 6) { err.hidden = false; err.textContent = "La clé doit faire au moins 6 caractères."; return; }
+      err.hidden = true;
+      var ancienne = localStorage.getItem(CLE_CODE);
+      S.code = v;
+      localStorage.setItem(CLE_CODE, v);
+      if (v !== ancienne) {
+        S.db = baseVide();
+        localStorage.setItem(CLE_DB, JSON.stringify(S.db));
+      }
+      ouvrirApp();
+      recevoir();
     };
-  };
-  $$("[data-fermer]", $("#feuille-recherche")).forEach(b => b.onclick = () => { $("#feuille-recherche").hidden = true; $("#voile").hidden = true; });
-}
 
-document.addEventListener("DOMContentLoaded", demarrer);
+    document.getElementById("creer-cle").onclick = function () {
+      var v = genererCle();
+      S.db = baseVide();
+      S.code = v;
+      S.revision = 0;
+      localStorage.setItem(CLE_CODE, v);
+      localStorage.setItem(CLE_DB, JSON.stringify(S.db));
+      appeler({ action: "push", code: v, payload: JSON.stringify(S.db), revision: 1, entreprise: S.db.entreprise.nom })
+        .then(function (r) { if (r && r.ok) S.revision = r.revision; })
+        .catch(function () {});
+      ouvrirApp();
+      avis("Votre clé d'accès : " + v);
+    };
 
-/* API pour les tests */
-window.GL = { get DB() { return DB; }, analyser, pdfDe, serie6mois, soldeTotal, margeProduit };
+    if (S.code) {
+      document.getElementById("entrer").click();
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", demarrer);
 })();

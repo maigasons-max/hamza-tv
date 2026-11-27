@@ -50,7 +50,9 @@ shutil.copytree(WWW, f"{work}/assets/www")
 # 2. manifeste et ressources
 man = open(f"{BASE}/template/AndroidManifest.xml").read().replace("com.nexus.webapp", PKG)
 import re as _re
-man = _re.sub(r'\s*<uses-permission[^>]*android.permission.INTERNET[^>]*/>', '', man)
+man = man.replace('</manifest>', '    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\n</manifest>')
+man = _re.sub(r'android:versionCode="\d+"', 'android:versionCode="%d"' % VERSION_CODE, man)
+man = _re.sub(r'android:versionName="[^"]*"', 'android:versionName="%s"' % VERSION_NAME, man)
 open(f"{work}/AndroidManifest.xml", "w").write(man)
 open(f"{work}/res/values/strings.xml", "w").write(
     f'''<?xml version="1.0" encoding="utf-8"?>
@@ -161,6 +163,28 @@ public class MainActivity extends Activity {
 
     public class Pont {
         @JavascriptInterface
+        public void notifier(String titre, String texte) {
+            try {
+                if (android.os.Build.VERSION.SDK_INT >= 33 &&
+                    checkSelfPermission("android.permission.POST_NOTIFICATIONS") != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 2001);
+                }
+                android.app.NotificationManager nm = (android.app.NotificationManager) getSystemService(android.content.Context.NOTIFICATION_SERVICE);
+                String canal = "grandlivre";
+                if (android.os.Build.VERSION.SDK_INT >= 26) {
+                    android.app.NotificationChannel ch = new android.app.NotificationChannel(canal, "Ecritures", android.app.NotificationManager.IMPORTANCE_DEFAULT);
+                    nm.createNotificationChannel(ch);
+                }
+                android.app.Notification.Builder b;
+                if (android.os.Build.VERSION.SDK_INT >= 26) b = new android.app.Notification.Builder(MainActivity.this, canal);
+                else b = new android.app.Notification.Builder(MainActivity.this);
+                b.setContentTitle(titre).setContentText(texte)
+                 .setSmallIcon(android.R.drawable.stat_notify_chat)
+                 .setAutoCancel(true);
+                nm.notify((int) (System.currentTimeMillis() & 0xFFFFF), b.build());
+            } catch (Exception e) {}
+        }
+
         public String saveFile(String nom, String type, String base64) {
             try {
                 byte[] octets = Base64.decode(base64, Base64.DEFAULT);
@@ -218,7 +242,8 @@ os.chdir(work)
 run([f"{SDK}/aapt2", "compile", "--dir", "res", "-o", "res.zip"])
 run([f"{SDK}/aapt2", "link", "-o", "app.unsigned.apk", "-I", JAR,
      "--manifest", "AndroidManifest.xml", "--java", "gen",
-     "--min-sdk-version", "21", "--target-sdk-version", "34", "res.zip"])
+     "--min-sdk-version", "21", "--target-sdk-version", "34",
+     "--version-code", str(VERSION_CODE), "--version-name", VERSION_NAME, "res.zip"])
 os.makedirs("classes")
 rfiles = [os.path.join(dp, f) for dp, _, fs in os.walk("gen") for f in fs]
 jfiles = [os.path.join(dp, f) for dp, _, fs in os.walk("java") for f in fs if f.endswith(".java")]
