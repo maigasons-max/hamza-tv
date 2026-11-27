@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<meta name="theme-color" content="#0b0b0d">
+<title>Grand Livre</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- écran de verrouillage -->
+<div id="verrou" class="verrou" hidden>
+  <div class="verrou-boite">
+    <div class="marque-logo">GL</div>
+    <h1>Grand Livre</h1>
+    <p id="verrou-msg">Entrez votre code</p>
+    <div class="points" id="verrou-points"></div>
+    <div class="pave" id="pave"></div>
+  </div>
+</div>
+
+<header class="entete">
+  <button class="entete-ent" id="btn-entreprise">
+    <span id="ent-nom">Mon entreprise</span>
+    <small id="ent-type">Entreprise</small>
+  </button>
+  <div class="entete-actions">
+    <button class="rond" id="btn-theme" title="Thème">◐</button>
+    <button class="rond" id="btn-recherche" title="Rechercher">⌕</button>
+  </div>
+</header>
+
+<main id="vue" class="vue"></main>
+
+<button class="fab" id="fab" title="Ajouter">+</button>
+
+<nav class="barre" id="barre">
+  <button data-onglet="accueil" class="on"><b>◧</b><span>Accueil</span></button>
+  <button data-onglet="operations"><b>⇅</b><span>Opérations</span></button>
+  <button data-onglet="stock"><b>▣</b><span>Stock</span></button>
+  <button data-onglet="argent"><b>₣</b><span>Argent</span></button>
+  <button data-onglet="plus"><b>⋯</b><span>Plus</span></button>
+</nav>
+
+<!-- feuille modale -->
+<div class="voile" id="voile" hidden></div>
+<section class="feuille" id="feuille" hidden></section>
+
+<!-- recherche -->
+<section class="feuille" id="feuille-recherche" hidden>
+  <div class="feuille-tete"><h2>Rechercher</h2><button class="rond" data-fermer>✕</button></div>
+  <input id="champ-recherche" class="saisie" placeholder="Produit, client, opération, note…" autocomplete="off">
+  <div id="resultats" class="liste"></div>
+</section>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>
