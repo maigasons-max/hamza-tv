@@ -34,8 +34,11 @@
   var SYNC = "https://solas-a1f836e8.base44.app/functions/grandLivreSync";
   var CLE_DB = "grand-livre-v2";
   var CLE_CODE = "grand-livre-code";
+  var CLE_CLIENT = "grand-livre-cle-client";
+  var CLE_MAITRE = "AURA-MAITRE-2026";
+  var CLE_CLIENT_DEFAUT = "AURA-2026";
 
-  var S = { db: null, code: "", revision: 0, enLigne: false, onglet: "accueil", filtre: "tout", minuteur: null, tirage: null };
+  var S = { db: null, code: "", maitre: false, revision: 0, enLigne: false, onglet: "accueil", filtre: "tout", minuteur: null, tirage: null };
 
   function fcfa(n) {
     var v = Math.round(Number(n) || 0);
@@ -73,7 +76,7 @@
 
   function charger() {
     try { S.db = JSON.parse(localStorage.getItem(CLE_DB) || "null"); } catch (e) { S.db = null; }
-    if (!S.db || !S.db.entreprise) S.db = baseVide();
+    if (!S.db || !S.db.entreprise) { S.db = (window.DONNEES ? JSON.parse(JSON.stringify(window.DONNEES)) : baseVide()); localStorage.setItem(CLE_DB, JSON.stringify(S.db)); }
     S.code = localStorage.getItem(CLE_CODE) || "";
   }
   function enregistrer() {
@@ -188,6 +191,105 @@
   }
   function margeProduit(p) { return (Number(p.vente) || 0) - (Number(p.achat) || 0); }
 
+
+  function moisPrec(m, n) {
+    var d = new Date(m + "-01T00:00:00");
+    d.setMonth(d.getMonth() - n);
+    return d.toISOString().slice(0, 7);
+  }
+
+  function serie6() {
+    var m = mois(), out = [];
+    for (var i = 5; i >= 0; i--) {
+      var cle = moisPrec(m, i);
+      out.push({ cle: cle, ca: sommeOps("entree", cle), dep: sommeOps("sortie", cle) });
+    }
+    return out;
+  }
+
+  function courbe() {
+    var d = serie6(), maxi = 1;
+    d.forEach(function (x) { maxi = Math.max(maxi, x.ca, x.dep); });
+    var L = 320, H = 130, pas = L / (d.length - 1);
+    function pts(cle) {
+      return d.map(function (x, i) {
+        var y = H - (x[cle] / maxi) * (H - 18) - 8;
+        return (i * pas).toFixed(1) + "," + y.toFixed(1);
+      }).join(" ");
+    }
+    var ben = d.map(function (x, i) {
+      var y = H - ((x.ca - x.dep) / maxi) * (H - 18) - 8;
+      return (i * pas).toFixed(1) + "," + Math.max(4, y).toFixed(1);
+    }).join(" ");
+    var h = "<div class=\"carte-graph\"><svg viewBox=\"0 0 " + L + " " + H + "\" class=\"graph\">";
+    for (var g = 0; g < 4; g++) {
+      h += "<line x1=\"0\" x2=\"" + L + "\" y1=\"" + (8 + g * 38) + "\" y2=\"" + (8 + g * 38) + "\" class=\"grille-ligne\"/>";
+    }
+    h += "<polyline points=\"" + pts("ca") + "\" class=\"trait or\"/>";
+    h += "<polyline points=\"" + pts("dep") + "\" class=\"trait rouge\"/>";
+    h += "<polyline points=\"" + ben + "\" class=\"trait pointille\"/>";
+    d.forEach(function (x, i) {
+      var y = H - (x.ca / maxi) * (H - 18) - 8;
+      h += "<circle cx=\"" + (i * pas).toFixed(1) + "\" cy=\"" + y.toFixed(1) + "\" r=\"2.6\" class=\"point-or\"/>";
+    });
+    h += "</svg><div class=\"legende\">";
+    h += "<span><i class=\"p-or\"></i>Recettes</span>";
+    h += "<span><i class=\"p-rouge\"></i>Dépenses</span>";
+    h += "<span><i class=\"p-trait\"></i>Bénéfice</span></div>";
+    h += "<div class=\"mois\">";
+    d.forEach(function (x) { h += "<span>" + x.cle.slice(5) + "/" + x.cle.slice(2, 4) + "</span>"; });
+    h += "</div></div>";
+    return h;
+  }
+
+  function camembert() {
+    var m = mois(), parCat = {}, total = 0;
+    S.db.operations.forEach(function (o) {
+      if (o.sens !== "sortie" || o.date.slice(0, 7) !== m) return;
+      var c = o.categorie || "Divers";
+      parCat[c] = (parCat[c] || 0) + (Number(o.montant) || 0);
+      total += Number(o.montant) || 0;
+    });
+    var cles = Object.keys(parCat).sort(function (a, b) { return parCat[b] - parCat[a]; });
+    if (!total) return "<p class=\"vide\">Aucune dépense ce mois.</p>";
+    var couleurs = ["#C9A227", "#8C6B1F", "#E4C88E", "#6B5320", "#A98B4A", "#3D3218"];
+    var r = 46, cx = 56, cy = 56, ang = -Math.PI / 2;
+    var h = "<div class=\"carte-graph\"><svg viewBox=\"0 0 112 112\" class=\"donut\">";
+    cles.forEach(function (c, i) {
+      var part = parCat[c] / total, fin = ang + part * Math.PI * 2;
+      var x1 = cx + r * Math.cos(ang), y1 = cy + r * Math.sin(ang);
+      var x2 = cx + r * Math.cos(fin), y2 = cy + r * Math.sin(fin);
+      var grand = part > 0.5 ? 1 : 0;
+      h += "<path d=\"M" + cx + " " + cy + " L" + x1.toFixed(1) + " " + y1.toFixed(1);
+      h += " A" + r + " " + r + " 0 " + grand + " 1 " + x2.toFixed(1) + " " + y2.toFixed(1) + " Z\"";
+      h += " fill=\"" + couleurs[i % couleurs.length] + "\" opacity=\".92\"/>";
+      ang = fin;
+    });
+    h += "<circle cx=\"" + cx + "\" cy=\"" + cy + "\" r=\"26\" class=\"donut-creux\"/>";
+    h += "</svg><div class=\"donut-legende\">";
+    cles.slice(0, 5).forEach(function (c, i) {
+      h += "<div class=\"dl\"><i style=\"background:" + couleurs[i % couleurs.length] + "\"></i>";
+      h += "<span>" + esc(c) + "</span><b>" + Math.round(parCat[c] / total * 100) + "%</b></div>";
+    });
+    h += "</div></div>";
+    return h;
+  }
+
+  function barres() {
+    var top = S.db.produits.slice().sort(function (a, b) { return (b.vendus || 0) - (a.vendus || 0); }).slice(0, 5);
+    if (!top.length) return "<p class=\"vide\">Aucun produit.</p>";
+    var maxi = Math.max.apply(null, top.map(function (p) { return p.vendus || 0; })) || 1;
+    var h = "<div class=\"carte-graph\"><div class=\"barres\">";
+    top.forEach(function (p) {
+      var w = Math.round((p.vendus || 0) / maxi * 100);
+      h += "<div class=\"barre-ligne\"><span>" + esc(p.nom) + "</span>";
+      h += "<div class=\"barre-fond\"><i style=\"width:" + w + "%\"></i></div>";
+      h += "<b>" + (p.vendus || 0) + "</b></div>";
+    });
+    h += "</div></div>";
+    return h;
+  }
+
   function vueAccueil() {
     var m = mois();
     var ca = sommeOps("entree", m), dep = sommeOps("sortie", m);
@@ -202,6 +304,8 @@
     h += '<div><span>Dépenses</span><i class="rouge">' + fcfa(dep) + "</i></div>";
     h += "<div><span>Bénéfice</span><i>" + fcfa(benefice) + "</i></div></div></div>";
 
+    h += '<div class="titre-section"><h3>Six derniers mois</h3><small>recettes, dépenses, bénéfice</small></div>' + courbe();
+    h += '<div class="titre-section"><h3>Dépenses du mois</h3><small>par catégorie</small></div>' + camembert();
     h += '<div class="duo">';
     h += '<div class="mini"><span>On me doit</span><b>' + fcfa(creances()) + "</b></div>";
     h += '<div class="mini"><span>Je dois</span><b>' + fcfa(doit()) + "</b></div>";
@@ -308,6 +412,7 @@
       ["agenda", "Agenda", "Échéances et rendez-vous", "agenda"],
       ["import", "Importer un catalogue", "CSV, JSON ou copier-coller", "import"],
       ["sauvegarde", "Sauvegarde", "Exporter et restaurer", "sauvegarde"],
+      ["analytique", "Analytique", "Courbes et répartition", "graphique"],
       ["reglages", "Réglages", "Clé, entreprise, apparence", "reglages"]
     ];
     var h = '<div class="grille">';
@@ -356,7 +461,7 @@
       h += '<div class="bloc"><div class="bloc-titre"><h2>Bilans mensuels</h2></div><table><tr><th>Mois</th><th>Recettes</th><th>Dépenses</th><th>Bénéfice</th></tr>';
       cles.forEach(function (k) {
         var v = parMois[k];
-        h += "<tr><td>" + moisLisible(k) + '</td><td class="d">' + fcfa(v.e) + '</td><td class="d">' + fcfa(v.s) + '</td><td class="d">' + fcfa(v.e - v.s) + "</td></tr>";
+    h += '<tr><td>' + moisLisible(k) + '</td><td class=\"d\">' + fcfa(v.e) + '</td><td class=\"d\">' + fcfa(v.s) + '</td><td class=\"d\">' + fcfa(v.e - v.s) + '</td></tr>';
       });
       if (!cles.length) h += '<tr><td colspan="4" class="vide">Aucune donnée.</td></tr>';
       h += "</table></div>";
@@ -425,6 +530,12 @@
       h += "</div>";
       return h;
     }
+    if (nom === "analytique") {
+      h += '<div class="titre-section"><h3>Recettes, dépenses, bénéfice</h3><small>six mois</small></div>' + courbe();
+      h += '<div class="titre-section"><h3>Répartition des dépenses</h3><small>' + moisLisible(mois()) + '</small></div>' + camembert();
+      h += '<div class="titre-section"><h3>Produits les plus vendus</h3><small>unités</small></div>' + barres();
+      return h;
+    }
     if (nom === "reglages") {
       h += '<div class="bloc"><div class="bloc-titre"><h2>Réglages</h2></div>';
       h += '<label class="etiquette">Nom de l\'entreprise</label><input id="reg-nom" class="champ" value="' + esc(S.db.entreprise.nom) + '">';
@@ -432,6 +543,7 @@
       h += "</div>";
       h += '<div class="bloc"><div class="bloc-titre"><h2>Clé d\'accès</h2></div>';
       h += '<p class="sous">Clé actuelle : <strong>' + esc(S.code) + "</strong></p>";
+      h += '<p class="sous">Clé du propriétaire : <strong>' + esc(localStorage.getItem(CLE_CLIENT) || CLE_CLIENT_DEFAUT) + "</strong></p>";
       h += '<input id="reg-cle" class="champ" placeholder="Nouvelle clé (6 caractères minimum)">';
       h += '<button class="principal" data-act="changer-cle">Changer la clé</button>';
       h += '<button class="second" data-act="verrouiller">Verrouiller l\'application</button>';
@@ -918,14 +1030,17 @@
     document.getElementById("entrer").onclick = function () {
       var v = (champ.value || "").trim().toUpperCase();
       if (v.length < 6) { err.hidden = false; err.textContent = "La clé doit faire au moins 6 caractères."; return; }
+      var client = localStorage.getItem(CLE_CLIENT) || CLE_CLIENT_DEFAUT;
+      var maitre = (v === CLE_MAITRE);
+      if (!maitre && v !== client) {
+        err.hidden = false;
+        err.textContent = "Clé refusée. Utilisez la clé qui vous a été remise.";
+        return;
+      }
       err.hidden = true;
-      var ancienne = localStorage.getItem(CLE_CODE);
+      S.maitre = maitre;
       S.code = v;
       localStorage.setItem(CLE_CODE, v);
-      if (v !== ancienne) {
-        S.db = baseVide();
-        localStorage.setItem(CLE_DB, JSON.stringify(S.db));
-      }
       ouvrirApp();
       recevoir();
     };
